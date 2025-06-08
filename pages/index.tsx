@@ -1,5 +1,6 @@
 // pages/index.tsx
 import Head from 'next/head';
+import Link from 'next/link'; // Linkコンポーネントをインポート
 
 export default function Home() {
   return (
