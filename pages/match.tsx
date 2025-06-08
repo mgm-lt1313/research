@@ -10,12 +10,13 @@ export default function Match() {
 
   const [profile, setProfile] = useState<SpotifyProfile | null>(null);
   const [artists, setArtists] = useState<SpotifyArtist[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(true); // 初期値は true のまま
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // access_tokenがない場合は何もしない（まだ取得できていないか、エラー）
     if (!access_token) {
-      setLoading(false);
+      setLoading(false); // access_tokenがない場合もローディングを終了させる
       if (router.query.error) {
         setError(`エラー: ${router.query.error}`);
       }
@@ -23,8 +24,10 @@ export default function Match() {
     }
 
     const fetchData = async () => {
-      setLoading(true);
+      // APIリクエスト開始前に loading を true にセット
+      setLoading(true); // ★ここに移動
       setError(null);
+
       try {
         const profileData = await getMyProfile(access_token);
         setProfile(profileData);
@@ -40,12 +43,15 @@ export default function Match() {
           setError('予期せぬエラーが発生しました。');
         }
       } finally {
-        setLoading(false);
+        // APIリクエスト終了後に loading を false にセット
+        setLoading(false); // ★ここに移動
       }
     };
 
     fetchData();
-  }, [access_token, router.query, loading]); // ★ 修正: loading を依存配列に追加
+  }, [access_token, router.query]); // ★ 依存配列から loading を削除！
+                                     // router.query も必要です
+                                     // (router.query.error の変更を検知するため)
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">データをロード中...</div>;
