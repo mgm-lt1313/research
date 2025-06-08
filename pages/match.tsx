@@ -2,13 +2,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { SpotifyProfile, SpotifyArtist, getMyProfile, getMyFollowingArtists } from '../lib/spotify'; 
-// import Image from 'next/image'; // Next.jsのImageコンポーネントを使用する場合にインポート
+import { SpotifyProfile, SpotifyArtist, getMyProfile, getMyFollowingArtists } from '../lib/spotify';
 
 export default function Match() {
   const router = useRouter();
-  // refresh_tokenが現在使われていないので、割り当てを削除するか、使う予定があれば使う
-  // 今回は使わないので削除 (または変数名を変更して ESLint から無視させる)
   const { access_token } = router.query as { access_token?: string };
 
   const [profile, setProfile] = useState<SpotifyProfile | null>(null);
@@ -17,21 +14,17 @@ export default function Match() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // access_tokenがない場合は何もしない（まだ取得できていないか、エラー）
     if (!access_token) {
-      setLoading(false); // ★ 修正: access_tokenがない場合もローディングを終了させる
+      setLoading(false);
       if (router.query.error) {
         setError(`エラー: ${router.query.error}`);
-      } else if (!loading) { // 初回ロード時以外でtokenがない場合はリダイレクトを検討
-        // 必要に応じてログインページに戻すなどの処理
-        // router.push('/');
       }
       return;
     }
 
     const fetchData = async () => {
       setLoading(true);
-      setError(null); 
+      setError(null);
       try {
         const profileData = await getMyProfile(access_token);
         setProfile(profileData);
@@ -42,24 +35,17 @@ export default function Match() {
         if (axios.isAxiosError(e)) {
           console.error('API Error:', e.response?.status, e.response?.data);
           setError(`APIエラーが発生しました: ${e.response?.status || '不明'}`);
-          if (e.response?.status === 401) { 
-            setError('認証エラーです。再度ログインしてください。');
-            // router.push('/'); 
-          } else if (e.response?.status === 404) {
-            setError('必要な情報が見つかりませんでした。');
-          }
         } else {
           console.error('予期せぬエラー:', e);
           setError('予期せぬエラーが発生しました。');
         }
       } finally {
-        setLoading(false); // ロード終了
+        setLoading(false);
       }
     };
 
     fetchData();
-  }, [access_token, router.query, loading]); // ★ 修正: `loading` を依存配列に追加
-                                             // router.queryも依存配列に含める
+  }, [access_token, router.query, loading]); // ★ 修正: loading を依存配列に追加
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">データをロード中...</div>;
@@ -75,31 +61,20 @@ export default function Match() {
         <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6">
           <div className="flex items-center space-x-4 mb-4">
             {profile.images?.[0]?.url && (
-              // <img ...> のままでLintエラーを一時的に無視する場合
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={profile.images[0].url}
                 alt={profile.display_name}
                 className="w-20 h-20 rounded-full object-cover"
               />
-              // Next.jsのImageコンポーネントに置き換える場合 (推奨)
-              /*
-              <Image
-                src={profile.images[0].url}
-                alt={profile.display_name}
-                width={80} // 適切な幅と高さを指定
-                height={80}
-                className="rounded-full object-cover"
-              />
-              */
             )}
             <div>
               <h1 className="text-2xl font-bold text-white">こんにちは、{profile.display_name} さん！</h1>
               <p className="text-gray-400">Spotify ID: {profile.id}</p>
-              <a 
-                href={profile.external_urls.spotify} 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href={profile.external_urls.spotify}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-green-400 hover:underline text-sm"
               >
                 Spotifyで開く
@@ -114,29 +89,18 @@ export default function Match() {
           {artists.map((artist) => (
             <li key={artist.id} className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3">
               {artist.images?.[0]?.url && (
-                // <img ...> のままでLintエラーを一時的に無視する場合
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={artist.images[0].url}
                   alt={artist.name}
                   className="w-12 h-12 rounded-full object-cover"
                 />
-                // Next.jsのImageコンポーネントに置き換える場合 (推奨)
-                /*
-                <Image
-                  src={artist.images[0].url}
-                  alt={artist.name}
-                  width={48} // 適切な幅と高さを指定 (w-12 h-12 なので 48px)
-                  height={48}
-                  className="rounded-full object-cover"
-                />
-                */
               )}
               <div>
-                <a 
-                  href={artist.external_urls.spotify} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={artist.external_urls.spotify}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-300 hover:underline font-medium"
                 >
                   {artist.name}

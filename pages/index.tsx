@@ -1,6 +1,6 @@
 // pages/index.tsx
 import Head from 'next/head';
-import Link from 'next/link'; // Linkコンポーネントをインポート
+import Link from 'next/link'; // Link コンポーネントをインポート
 
 export default function Home() {
   return (
@@ -19,12 +19,10 @@ export default function Home() {
           あなたのSpotifyフォローアーティストから、音楽の趣味が合う人を見つけよう！
         </p>
 
-        <a
-          href="/api/login" // Spotify認証APIルートへのリンク
-          className="px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 md:py-4 md:text-lg md:px-10"
-        >
+        {/* 修正: <a> タグを <Link> コンポーネントで囲む */}
+        <Link href="/api/login" className="px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 md:py-4 md:text-lg md:px-10">
           Spotifyでログイン
-        </a>
+        </Link>
       </main>
     </div>
   );
