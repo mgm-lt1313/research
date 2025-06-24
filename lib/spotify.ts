@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Spotify APIのベースURL
-const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1';
+const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1'; // 正しいSpotify APIのベースURL
 
 // Spotify APIのプロフィール情報の型定義
 export interface SpotifyProfile {
@@ -48,4 +48,19 @@ export const getMyFollowingArtists = async (accessToken: string): Promise<Spotif
     }
   );
   return data.artists.items;
+};
+
+/**
+ * 指定されたアーティストの関連アーティストを取得
+ * @param artistId 関連アーティストを取得したいアーティストのID
+ * @param accessToken Spotify APIのアクセストークン
+ */
+export const getRelatedArtists = async (artistId: string, accessToken: string): Promise<SpotifyArtist[]> => {
+  const { data } = await axios.get<{ artists: SpotifyArtist[] }>(
+    `${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+  return data.artists;
 };
