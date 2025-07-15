@@ -71,7 +71,7 @@ export default function Match() {
               <img
                 src={profile.images[0].url}
                 alt={profile.display_name}
-                className="w-20 h-20 rounded-full object-cover"
+                className="w-10 h-10 rounded-full object-cover"
               />
             )}
             <div>
