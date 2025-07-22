@@ -99,7 +99,7 @@ export default function Match() {
                 <img
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="w-12 h-12 rounded-full object-cover"
+                  className="w-6 h-6 rounded-full object-cover"
                 />
               )}
               <div>

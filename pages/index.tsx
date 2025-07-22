@@ -12,13 +12,10 @@ export default function Home() {
 
       <main className="flex flex-col items-center justify-center w-full flex-1 px-20 text-center">
         <h1 className="text-4xl font-bold mb-6">
-          Spotify音楽嗜好マッチング
+          Spotifyマッチング
         </h1>
 
-        <p className="mt-3 text-xl mb-8">
-          あなたのSpotifyフォローアーティストから、音楽の趣味が合う人を見つけよう！
-        </p>
-
+        
         {/* 修正: <a> タグを <Link> コンポーネントで囲む */}
         <Link href="/api/login" className="px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 md:py-4 md:text-lg md:px-10">
           Spotifyでログイン
