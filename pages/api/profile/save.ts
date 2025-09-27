@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import pool from '../../../lib/db'; // lib/db.ts からデータベース接続をインポート
+// 修正後の正しいパス
+import pool from '../../../lib/db'; // lib/db.ts からデータベース接続をインポート // lib/db.ts からデータベース接続をインポート
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
