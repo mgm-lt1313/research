@@ -1,13 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import axios from 'axios';
 import Graph from 'graphology';
 import { pagerank } from 'graphology-metrics/centrality'; // PageRankをインポート
 import { getRelatedArtists } from '../../../lib/spotify'; // 関連アーティスト取得関数をインポート
 import pool from '../../../lib/db';
 import { PoolClient } from 'pg'; // データベースクライアントの型をインポート
 
-// Spotify APIのベースURL (lib/spotify.tsからコピー)
-const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1';
 
 // ----------------------------------------------------
 // DBヘルパー関数
@@ -43,13 +40,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         const graph = new Graph();
-        const MAX_DEPTH = 1; // ネットワークの深さ (シードアーティストの関連アーティストまで)
 
         // 1. ネットワーク構築 (BFSのような処理)
-        const allArtists = new Map<string, { id: string, name: string, image: string | null }>();
         const seedArtistIds = new Set(selectedArtistIds);
         const queue = [...selectedArtistIds];
-        let edgesAdded = 0;
 
         // シードアーティストをノードに追加
         for (const artistId of selectedArtistIds) {
@@ -80,7 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 // 元のアーティスト -> 関連アーティスト のエッジを追加
                 if (!graph.hasEdge(artistId, related.id)) {
                     graph.addEdge(artistId, related.id, { weight: 1 }); // 重み付けは一旦1
-                    edgesAdded++;
+                    
                 }
             }
         }
@@ -93,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
         // 3. 結果の抽出と整形
-        let rankedResults: PageRankResult[] = [];
+        const rankedResults: PageRankResult[] = [];
         
         graph.forEachNode((nodeId, attributes) => {
             // シードアーティスト自体を推薦結果から除外する

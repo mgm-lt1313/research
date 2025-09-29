@@ -397,13 +397,13 @@ export default function Match() {
                 src={profileImageUrl || profile.images?.[0]?.url || ''}
                 alt={nickname || profile.display_name || 'プロフィール画像'}
                 className="w-10 h-10 rounded-full object-cover" // Tailwindクラスを使用
-                width={40} // 👈 追加: w-10 h-10 に合わせたサイズ
-                height={40} // 👈 追加: w-10 h-10 に合わせたサイズ
+                width={40} // w-10 h-10 に合わせたサイズ
+                height={40} // w-10 h-10 に合わせたサイズ
               />
             )}
             <div>
               <h1 className="text-2xl font-bold text-white">こんにちは、{nickname || profile.display_name} さん！</h1>
-              {/* Spotify ID と Bio の表示を削除しました */}
+              {/* Spotify ID と Bio の表示を削除済み */}
               <a
                 href={profile.external_urls.spotify}
                 target="_blank"
@@ -416,6 +416,50 @@ export default function Match() {
           </div>
         </div>
       )}
+
+      {/* 🔽 1. PageRankによる推薦アーティストの表示 (新規追加) 🔽 */}
+      {recommendedArtists.length > 0 && (
+        <>
+          <h2 className="text-xl font-bold mt-8 text-white mb-4">✨ PageRankによる推薦アーティスト (マッチングに使用)</h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recommendedArtists.map((artist) => (
+              <li 
+                key={artist.id} 
+                className="bg-purple-800 p-4 rounded-lg shadow-sm flex items-center space-x-3 border border-purple-400"
+              >
+                {artist.image && (
+                  <Image 
+                    src={artist.image} 
+                    alt={artist.name} 
+                    width={32} 
+                    height={32} 
+                    className="w-8 h-8 rounded-full object-cover" 
+                  />
+                )}
+                <div className="text-sm font-medium text-white">
+                    {artist.name} <span className="text-purple-300 text-xs">(推薦)</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      
+      {/* 🔽 2. 選択されたアーティストのリスト (追加) 🔽 */}
+      {selectedArtists.length > 0 && (
+        <>
+            <h2 className="text-xl font-bold mt-8 text-white mb-4">あなたが選択したアーティスト</h2>
+            <ul className="flex flex-wrap gap-2 mb-8">
+                {selectedArtists.map(artist => (
+                    <li key={artist.id} className="bg-green-700 text-white text-sm font-semibold px-3 py-1 rounded-full flex items-center space-x-2">
+                        {artist.name}
+                    </li>
+                ))}
+            </ul>
+        </>
+      )}
+      
+      {/* 3. フォロー中のアーティストリスト (既存) */}
       <h2 className="text-xl font-bold mt-4 text-white mb-4">フォロー中のアーティスト</h2>
       {artists.length > 0 ? (
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -429,9 +473,9 @@ export default function Match() {
                 <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  width={32}  // 👈 w-8 h-8 (32px) に合わせた数値
-                  height={32} // 👈 w-8 h-8 (32px) に合わせた数値
-                  className="w-8 h-8 rounded-full object-cover" // 👈 w-8 h-8 クラスも追加
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 rounded-full object-cover"
                 />
               )}
               <a
