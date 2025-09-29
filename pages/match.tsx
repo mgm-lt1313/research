@@ -264,7 +264,7 @@ export default function Match() {
                 <img
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="w-8 h-8 rounded-full object-cover" // 🔽 修正済み 🔽
+                  className="w-6 h-6 rounded-full object-cover" // 🔽 修正済み 🔽
                 />
               )}
               <div>
