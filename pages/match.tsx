@@ -377,8 +377,6 @@ export default function Match() {
             )}
             <div>
               <h1 className="text-2xl font-bold text-white">こんにちは、{nickname || profile.display_name} さん！</h1>
-              <p className="text-gray-400">Spotify ID: {profile.id}</p>
-              {bio && <p className="text-gray-300 mt-2">{bio}</p>}
               <a
                 href={profile.external_urls.spotify}
                 target="_blank"
