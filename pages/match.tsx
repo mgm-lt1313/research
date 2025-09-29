@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { SpotifyProfile, SpotifyArtist, getMyProfile, getMyFollowingArtists } from '../lib/spotify';
+import Image from 'next/image';
 
 // DBから取得するプロフィール情報のための型定義
 interface UserProfile {
@@ -208,7 +209,7 @@ export default function Match() {
             <div>
                 <label htmlFor="profileImageUrl" className="block text-white text-sm font-bold mb-2">プロフィール画像URL (任意)</label>
                 <input type="url" id="profileImageUrl" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value={profileImageUrl} onChange={(e) => setProfileImageUrl(e.target.value)} placeholder="例: http://example.com/your-image.jpg" />
-                {profileImageUrl && <img src={profileImageUrl} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-full" />}
+                {profileImageUrl && <Image src={profileImageUrl} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-full" />}
             </div>
             <div>
                 <label htmlFor="bio" className="block text-white text-sm font-bold mb-2">自己紹介文 (任意)</label>
@@ -256,14 +257,16 @@ export default function Match() {
 
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {artists.map((artist) => (
-            <li key={artist.id} className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3">
+            <li
+              key={artist.id}
+              className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer"
+              onClick={() => toggleArtistSelection(artist)} // ← 追加
+            >
               {artist.images?.[0]?.url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="rounded-full object-cover"
-                  style={{ width: '150px', height: '150px' }} // ← ここを変更
+                  className="w-8 h-8 rounded-full object-cover"
                 />
               )}
               <div>
@@ -275,7 +278,6 @@ export default function Match() {
                 >
                   {artist.name}
                 </a>
-                {/* ジャンル表示は削除 */}
               </div>
             </li>
           ))}
@@ -367,7 +369,7 @@ export default function Match() {
           <div className="flex items-center space-x-4 mb-4">
             {(profileImageUrl || profile.images?.[0]?.url) && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={profileImageUrl || profile.images?.[0]?.url || ''}
                 alt={nickname || profile.display_name || 'プロフィール画像'}
                 className="w-10 h-10 rounded-full object-cover" // Tailwindクラスを使用
@@ -393,14 +395,16 @@ export default function Match() {
       {artists.length > 0 ? (
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {artists.map((artist) => (
-            <li key={artist.id} className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3">
+            <li
+              key={artist.id}
+              className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer"
+              onClick={() => toggleArtistSelection(artist)} // ← 追加
+            >
               {artist.images?.[0]?.url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="rounded-full object-cover"
-                  style={{ width: '150px', height: '150px' }} // ← ここを変更
+                  className="w-8 h-8 rounded-full object-cover"
                 />
               )}
               <div>
@@ -412,9 +416,6 @@ export default function Match() {
                 >
                   {artist.name}
                 </a>
-                {artist.genres && artist.genres.length > 0 && (
-                  <p className="text-gray-400 text-sm">{artist.genres.join(', ')}</p>
-                )}
               </div>
             </li>
           ))}
