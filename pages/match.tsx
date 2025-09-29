@@ -260,25 +260,25 @@ export default function Match() {
             <li
               key={artist.id}
               className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer"
-              onClick={() => toggleArtistSelection(artist)} // ← 追加
+              onClick={() => toggleArtistSelection(artist)}
             >
               {artist.images?.[0]?.url && (
                 <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="w-8 h-8 rounded-full object-cover"
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover"
                 />
               )}
-              <div>
-                <a
-                  href={artist.external_urls.spotify}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-300 hover:underline font-medium"
-                >
-                  {artist.name}
-                </a>
-              </div>
+              <a
+                href={artist.external_urls.spotify}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-300 hover:underline font-medium"
+              >
+                {artist.name}
+              </a>
             </li>
           ))}
         </ul>
@@ -398,25 +398,25 @@ export default function Match() {
             <li
               key={artist.id}
               className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer"
-              onClick={() => toggleArtistSelection(artist)} // ← 追加
+              onClick={() => toggleArtistSelection(artist)}
             >
               {artist.images?.[0]?.url && (
                 <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="w-8 h-8 rounded-full object-cover"
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover"
                 />
               )}
-              <div>
-                <a
-                  href={artist.external_urls.spotify}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-300 hover:underline font-medium"
-                >
-                  {artist.name}
-                </a>
-              </div>
+              <a
+                href={artist.external_urls.spotify}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-300 hover:underline font-medium"
+              >
+                {artist.name}
+              </a>
             </li>
           ))}
         </ul>
