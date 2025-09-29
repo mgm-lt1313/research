@@ -3,6 +3,13 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import { SpotifyProfile, SpotifyArtist, getMyProfile, getMyFollowingArtists } from '../lib/spotify';
 
+// DBから取得するプロフィール情報のための型定義
+interface UserProfile {
+  nickname: string;
+  profile_image_url: string | null;
+  bio: string | null;
+}
+
 export default function Match() {
   const router = useRouter();
   const { access_token } = router.query as { access_token?: string };
@@ -16,7 +23,10 @@ export default function Match() {
   const [nickname, setNickname] = useState<string>('');
   const [profileImageUrl, setProfileImageUrl] = useState<string>('');
   const [bio, setBio] = useState<string>('');
-  const [profileRegistered, setProfileRegistered] = useState<boolean>(false);
+
+  // 🔽 状態管理をより詳細に変更 🔽
+  const [isNewUser, setIsNewUser] = useState<boolean>(true); // 新規ユーザーかどうか
+  const [isEditing, setIsEditing] = useState<boolean>(false); // 編集モードかどうか
 
   useEffect(() => {
     if (!access_token) {
@@ -34,25 +44,28 @@ export default function Match() {
         const profileData = await getMyProfile(access_token);
         setProfile(profileData);
         
-        // フォローアーティストはDB保存にも使うので取得
         const artistsData = await getMyFollowingArtists(access_token);
         setArtists(artistsData);
 
-        // プロフィール登録済みか確認するAPIエンドポイントを呼び出す（まだ実装していませんが、後で必要になります）
-        // const existingProfileRes = await axios.get(`/api/profile/get?spotifyUserId=${profileData.id}`);
-        // if (existingProfileRes.data.profile) {
-        //     const existingProfile = existingProfileRes.data.profile;
-        //     setNickname(existingProfile.nickname);
-        //     setProfileImageUrl(existingProfile.profile_image_url || '');
-        //     setBio(existingProfile.bio || '');
-        //     setProfileRegistered(true);
-        // } else {
-            // Spotifyの表示名を初期値に設定
+        // 1. 既存プロフィールを確認するAPIを呼び出す
+        const existingProfileRes = await axios.get<any, { data: { profile: UserProfile | null } }>(
+          `/api/profile/get?spotifyUserId=${profileData.id}`
+        );
+
+        const existingProfile = existingProfileRes.data.profile;
+
+        if (existingProfile) {
+            // 2. 登録済みの場合: データをStateにロードし、新規ユーザーではないと設定
+            setNickname(existingProfile.nickname);
+            setProfileImageUrl(existingProfile.profile_image_url || '');
+            setBio(existingProfile.bio || '');
+            setIsNewUser(false); 
+        } else {
+            // 3. 未登録の場合: Spotifyの情報を初期値に設定し、新規ユーザーと設定
             setNickname(profileData.display_name || '');
-            // Spotifyのプロフィール画像を初期値に設定
             setProfileImageUrl(profileData.images?.[0]?.url || '');
-            setProfileRegistered(false);
-        // }
+            setIsNewUser(true); 
+        }
 
       } catch (e) {
         if (axios.isAxiosError(e)) {
@@ -70,7 +83,7 @@ export default function Match() {
     fetchData();
   }, [access_token, router.query]);
 
-  // プロフィール登録フォーム送信ハンドラ
+  // プロフィール登録/更新フォーム送信ハンドラ
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) {
@@ -86,7 +99,7 @@ export default function Match() {
     setError(null);
 
     try {
-      // プロフィールをDBに保存するAPIエンドポイントにPOSTリクエストを送る
+      // 既存の save API は新規登録と更新の両方を処理します
       const response = await axios.post('/api/profile/save', {
         spotifyUserId: profile.id,
         nickname,
@@ -95,8 +108,11 @@ export default function Match() {
       });
 
       if (response.status === 200) {
-        alert('プロフィールを登録しました！');
-        setProfileRegistered(true);
+        alert(isNewUser ? 'プロフィールを登録しました！' : 'プロフィールを更新しました！');
+        
+        // 登録が完了したら、状態を更新してメイン画面に戻す
+        setIsNewUser(false);
+        setIsEditing(false);
       } else {
         setError('プロフィールの保存に失敗しました。');
       }
@@ -121,12 +137,14 @@ export default function Match() {
     return <div className="flex justify-center items-center min-h-screen text-red-500">{error}</div>;
   }
 
-  // プロフィール登録がまだの場合
-  if (!profileRegistered && profile) {
+  // 🔽 新規ユーザーまたは編集モードの場合にフォームを表示 🔽
+  if (isNewUser || isEditing) {
     return (
       <div className="p-4 max-w-xl mx-auto bg-gray-800 rounded-lg shadow-md mt-8">
-        <h1 className="text-2xl font-bold text-white mb-4">プロフィールを登録しましょう！</h1>
-        <p className="text-gray-400 mb-6">マッチング機能を利用するために、簡単なプロフィール登録をお願いします。</p>
+        <h1 className="text-2xl font-bold text-white mb-4">
+          {isNewUser ? 'プロフィールを登録しましょう！' : 'プロフィールを編集'}
+        </h1>
+        <p className="text-gray-400 mb-6">マッチング機能を利用するために、プロフィールを編集・登録します。</p>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         <form onSubmit={handleProfileSubmit} className="space-y-4">
           <div>
@@ -172,24 +190,45 @@ export default function Match() {
               placeholder="あなたの好きな音楽のジャンルや、活動していることなど"
             ></textarea>
           </div>
-          <button
-            type="submit"
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            disabled={loading}
-          >
-            {loading ? '登録中...' : 'プロフィールを登録'}
-          </button>
+          <div className="flex justify-between">
+            <button
+                type="submit"
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                disabled={loading}
+            >
+                {loading ? '保存中...' : (isNewUser ? 'プロフィールを登録' : '更新を保存')}
+            </button>
+            {isEditing && (
+                <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                    disabled={loading}
+                >
+                    キャンセル
+                </button>
+            )}
+          </div>
         </form>
       </div>
     );
   }
 
-  // プロフィール登録済みの場合、メインコンテンツを表示
+  // 🔽 プロフィール登録済みの場合、メインコンテンツを表示 🔽
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      {/* 既存のプロフィール表示部分 */}
+      {/* プロフィール表示部分 */}
       {profile && (
-        <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+        <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6 relative">
+          
+          {/* 🔽 編集ボタンを追加 🔽 */}
+          <button
+            onClick={() => setIsEditing(true)}
+            className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm focus:outline-none focus:shadow-outline"
+          >
+            プロフィールを編集
+          </button>
+          
           <div className="flex items-center space-x-4 mb-4">
             {(profileImageUrl || profile.images?.[0]?.url) && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -225,7 +264,7 @@ export default function Match() {
                 <img
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="w-6 h-6 rounded-full object-cover"
+                  className="w-8 h-8 rounded-full object-cover" // 🔽 修正済み 🔽
                 />
               )}
               <div>
