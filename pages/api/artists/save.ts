@@ -1,9 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import pool from '../../../lib/db'; 
-import axios from 'axios';
 
+
+import { PoolClient } from 'pg';
 // データベースからユーザーの内部IDを取得するヘルパー関数
-async function getUserIdBySpotifyId(client: any, spotifyUserId: string): Promise<number | null> {
+async function getUserIdBySpotifyId(client: PoolClient, spotifyUserId: string): Promise<number | null> {
     const res = await client.query('SELECT id FROM users WHERE spotify_user_id = $1', [spotifyUserId]);
     return res.rows.length > 0 ? res.rows[0].id : null;
 }
