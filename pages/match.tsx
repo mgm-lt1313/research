@@ -10,6 +10,16 @@ interface UserProfile {
   bio: string | null;
 }
 
+// 選択されたアーティストの型
+interface SelectedArtist {
+  id: string;
+  name: string;
+  image: string | null;
+}
+
+// UIのタブ状態
+type MatchTab = 'profile' | 'artists';
+
 export default function Match() {
   const router = useRouter();
   const { access_token } = router.query as { access_token?: string };
@@ -24,9 +34,14 @@ export default function Match() {
   const [profileImageUrl, setProfileImageUrl] = useState<string>('');
   const [bio, setBio] = useState<string>('');
 
-  // 🔽 状態管理をより詳細に変更 🔽
+  // 🔽 新しいステート 🔽
+  const [selectedArtists, setSelectedArtists] = useState<SelectedArtist[]>([]); // 選択中のアーティスト
+  const [activeTab, setActiveTab] = useState<MatchTab>('profile'); // 現在表示中のタブ
+
   const [isNewUser, setIsNewUser] = useState<boolean>(true); // 新規ユーザーかどうか
-  const [isEditing, setIsEditing] = useState<boolean>(false); // 編集モードかどうか
+  const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false); // プロフィール編集モードかどうか
+  const [isEditingArtists, setIsEditingArtists] = useState<boolean>(false); // アーティスト編集モードかどうか
+
 
   useEffect(() => {
     if (!access_token) {
@@ -47,7 +62,7 @@ export default function Match() {
         const artistsData = await getMyFollowingArtists(access_token);
         setArtists(artistsData);
 
-        // 1. 既存プロフィールを確認するAPIを呼び出す
+        // 1. 既存プロフィールを確認
         const existingProfileRes = await axios.get<{ profile: UserProfile | null }>(
           `/api/profile/get?spotifyUserId=${profileData.id}`
         );
@@ -55,17 +70,20 @@ export default function Match() {
         const existingProfile = existingProfileRes.data.profile;
 
         if (existingProfile) {
-            // 2. 登録済みの場合: データをStateにロードし、新規ユーザーではないと設定
             setNickname(existingProfile.nickname);
             setProfileImageUrl(existingProfile.profile_image_url || '');
             setBio(existingProfile.bio || '');
             setIsNewUser(false); 
         } else {
-            // 3. 未登録の場合: Spotifyの情報を初期値に設定し、新規ユーザーと設定
             setNickname(profileData.display_name || '');
             setProfileImageUrl(profileData.images?.[0]?.url || '');
             setIsNewUser(true); 
+            // 🔽 新規ユーザーはプロフィール登録から開始 🔽
+            setIsEditingProfile(true);
         }
+
+        // 2. 既存の選択アーティストを取得（省略 - 今回は選択画面から更新）
+        // TODO: ここで selected_artists のデータを取得するAPIを呼び出す
 
       } catch (e) {
         if (axios.isAxiosError(e)) {
@@ -83,15 +101,61 @@ export default function Match() {
     fetchData();
   }, [access_token, router.query]);
 
-  // プロフィール登録/更新フォーム送信ハンドラ
+  // 選択アーティストの追加/削除ハンドラ
+  const toggleArtistSelection = (artist: SpotifyArtist) => {
+    const isSelected = selectedArtists.some(sa => sa.id === artist.id);
+    const artistData: SelectedArtist = {
+        id: artist.id,
+        name: artist.name,
+        image: artist.images?.[0]?.url || null,
+    };
+
+    if (isSelected) {
+        // 削除
+        setSelectedArtists(selectedArtists.filter(sa => sa.id !== artist.id));
+    } else {
+        // 追加 (3人制限)
+        if (selectedArtists.length < 3) {
+            setSelectedArtists([...selectedArtists, artistData]);
+        } else {
+            alert('選択できるアーティストは最大3人までです。');
+        }
+    }
+  };
+
+  // プロフィール登録/更新フォーム送信ハンドラ (既存)
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) {
-        setError('Spotifyプロフィールが読み込まれていません。');
-        return;
+    if (!profile) return setError('Spotifyプロフィールが読み込まれていません。');
+    if (!nickname.trim()) return setError('ニックネームは必須です。');
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await axios.post('/api/profile/save', {
+        spotifyUserId: profile.id,
+        nickname,
+        profileImageUrl,
+        bio,
+      });
+
+      alert(isNewUser ? 'プロフィールを登録しました！' : 'プロフィールを更新しました！');
+      
+      setIsNewUser(false);
+      setIsEditingProfile(false);
+    } catch (e) {
+      // ... エラー処理 ...
+    } finally {
+      setLoading(false);
     }
-    if (!nickname.trim()) {
-        setError('ニックネームは必須です。');
+  };
+
+  // アーティスト選択保存ハンドラ (新規)
+  const handleArtistSave = async () => {
+    if (!profile) return setError('Spotifyプロフィールが読み込まれていません。');
+    if (selectedArtists.length === 0) {
+        alert('アーティストを1人以上選択してください。');
         return;
     }
 
@@ -99,35 +163,24 @@ export default function Match() {
     setError(null);
 
     try {
-      // 既存の save API は新規登録と更新の両方を処理します
-      const response = await axios.post('/api/profile/save', {
-        spotifyUserId: profile.id,
-        nickname,
-        profileImageUrl,
-        bio,
-      });
+        await axios.post('/api/artists/save', {
+            spotifyUserId: profile.id,
+            selectedArtists: selectedArtists.map(a => ({ id: a.id, name: a.name })), // IDと名前だけ送信
+        });
 
-      if (response.status === 200) {
-        alert(isNewUser ? 'プロフィールを登録しました！' : 'プロフィールを更新しました！');
-        
-        // 登録が完了したら、状態を更新してメイン画面に戻す
-        setIsNewUser(false);
-        setIsEditing(false);
-      } else {
-        setError('プロフィールの保存に失敗しました。');
-      }
+        alert('マッチング用アーティストを保存しました！');
+        setIsEditingArtists(false);
     } catch (e) {
-      if (axios.isAxiosError(e)) {
-        console.error('Profile Save API Error:', e.response?.status, e.response?.data);
-        setError(`プロフィールの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
-      } else {
-        console.error('予期せぬエラー:', e);
-        setError('予期せぬエラーが発生しました。');
-      }
+        if (axios.isAxiosError(e)) {
+            setError(`アーティストの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
+        } else {
+            setError('予期せぬエラーが発生しました。');
+        }
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
+
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">データをロード中...</div>;
@@ -136,98 +189,186 @@ export default function Match() {
   if (error) {
     return <div className="flex justify-center items-center min-h-screen text-red-500">{error}</div>;
   }
-
-  // 🔽 新規ユーザーまたは編集モードの場合にフォームを表示 🔽
-  if (isNewUser || isEditing) {
-    return (
-      <div className="p-4 max-w-xl mx-auto bg-gray-800 rounded-lg shadow-md mt-8">
-        <h1 className="text-2xl font-bold text-white mb-4">
-          {isNewUser ? 'プロフィールを登録しましょう！' : 'プロフィールを編集'}
-        </h1>
-        <p className="text-gray-400 mb-6">マッチング機能を利用するために、プロフィールを編集・登録します。</p>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+  
+  // ----------------------------------------------------
+  // 🔽 UI: プロフィール編集フォーム 🔽
+  // ----------------------------------------------------
+  const ProfileEditor = () => (
+    <div className="p-4 max-w-xl mx-auto bg-gray-800 rounded-lg shadow-md mt-4">
+        <h2 className="text-xl font-bold text-white mb-4">
+            {isNewUser ? 'プロフィール登録' : 'プロフィール編集'}
+        </h2>
         <form onSubmit={handleProfileSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="nickname" className="block text-white text-sm font-bold mb-2">
-              ニックネーム <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="nickname"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="profileImageUrl" className="block text-white text-sm font-bold mb-2">
-              プロフィール画像URL (任意)
-            </label>
-            <input
-              type="url"
-              id="profileImageUrl"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={profileImageUrl}
-              onChange={(e) => setProfileImageUrl(e.target.value)}
-              placeholder="例: http://example.com/your-image.jpg"
-            />
-             {profileImageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={profileImageUrl} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-full" />
-            )}
-            <p className="text-gray-500 text-xs mt-1">Spotifyのプロフィール画像を初期値としています。</p>
-          </div>
-          <div>
-            <label htmlFor="bio" className="block text-white text-sm font-bold mb-2">
-              自己紹介文 (任意)
-            </label>
-            <textarea
-              id="bio"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24 resize-none"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="あなたの好きな音楽のジャンルや、活動していることなど"
-            ></textarea>
-          </div>
-          <div className="flex justify-between">
-            <button
-                type="submit"
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                disabled={loading}
-            >
-                {loading ? '保存中...' : (isNewUser ? 'プロフィールを登録' : '更新を保存')}
-            </button>
-            {isEditing && (
-                <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                    disabled={loading}
-                >
-                    キャンセル
+            {/* ... フォーム要素 (nickname, profileImageUrl, bio) はそのまま ... */}
+            <div>
+                <label htmlFor="nickname" className="block text-white text-sm font-bold mb-2">ニックネーム <span className="text-red-500">*</span></label>
+                <input type="text" id="nickname" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value={nickname} onChange={(e) => setNickname(e.target.value)} required />
+            </div>
+            <div>
+                <label htmlFor="profileImageUrl" className="block text-white text-sm font-bold mb-2">プロフィール画像URL (任意)</label>
+                <input type="url" id="profileImageUrl" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value={profileImageUrl} onChange={(e) => setProfileImageUrl(e.target.value)} placeholder="例: http://example.com/your-image.jpg" />
+                {profileImageUrl && <img src={profileImageUrl} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-full" />}
+            </div>
+            <div>
+                <label htmlFor="bio" className="block text-white text-sm font-bold mb-2">自己紹介文 (任意)</label>
+                <textarea id="bio" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24 resize-none" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="あなたの好きな音楽のジャンルや、活動していることなど"></textarea>
+            </div>
+            <div className="flex justify-between">
+                <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" disabled={loading}>
+                    {loading ? '保存中...' : (isNewUser ? 'プロフィールを登録' : '更新を保存')}
                 </button>
-            )}
-          </div>
+                {isEditingProfile && (
+                    <button type="button" onClick={() => setIsEditingProfile(false)} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" disabled={loading}>
+                        キャンセル
+                    </button>
+                )}
+            </div>
         </form>
-      </div>
+    </div>
+  );
+
+  // ----------------------------------------------------
+  // 🔽 UI: アーティスト選択フォーム 🔽
+  // ----------------------------------------------------
+  const ArtistSelection = () => (
+    <div className="p-4 max-w-2xl mx-auto bg-gray-800 rounded-lg shadow-md mt-4">
+        <h2 className="text-xl font-bold text-white mb-4">マッチング用アーティスト選択 ({selectedArtists.length}/3)</h2>
+        <p className="text-gray-400 mb-4">あなたのプロフィールを特徴づけるアーティストを3人まで選んでください。</p>
+        
+        <div className="mb-4 flex flex-wrap gap-2">
+            <span className="text-white text-sm font-bold">選択中:</span>
+            {selectedArtists.map(artist => (
+                <span key={artist.id} className="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    {artist.name}
+                </span>
+            ))}
+            {selectedArtists.length === 0 && <span className="text-gray-400 text-sm">選択されていません</span>}
+        </div>
+        
+        <button
+            onClick={handleArtistSave}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mb-4"
+            disabled={loading || selectedArtists.length === 0}
+        >
+            {loading ? '保存中...' : '選択したアーティストを保存'}
+        </button>
+
+        <ul className="grid grid-cols-2 md:grid-cols-3 gap-4 h-96 overflow-y-scroll p-2 border border-gray-700 rounded-md">
+            {artists.map((artist) => {
+                const isSelected = selectedArtists.some(sa => sa.id === artist.id);
+                const isDisabled = !isSelected && selectedArtists.length >= 3;
+                return (
+                    <li 
+                        key={artist.id} 
+                        onClick={() => toggleArtistSelection(artist)}
+                        className={`
+                            p-3 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer transition-all duration-150
+                            ${isDisabled 
+                                ? 'bg-gray-700 opacity-50 cursor-not-allowed'
+                                : isSelected 
+                                    ? 'bg-green-800 border-2 border-green-400' 
+                                    : 'bg-gray-700 hover:bg-gray-600'
+                            }
+                        `}
+                    >
+                        {artist.images?.[0]?.url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={artist.images[0].url}
+                                alt={artist.name}
+                                className="w-10 h-10 rounded-full object-cover" // 適切なサイズ
+                            />
+                        )}
+                        <div className="text-sm font-medium text-white truncate">
+                            {artist.name}
+                        </div>
+                    </li>
+                );
+            })}
+        </ul>
+    </div>
+  );
+
+  // ----------------------------------------------------
+  // 🔽 メインレンダリング 🔽
+  // ----------------------------------------------------
+
+  // プロフィール未登録の場合、登録フォームのみを表示
+  if (isNewUser) {
+    return (
+        <div className="p-4 max-w-2xl mx-auto">
+            <h1 className="text-3xl font-bold text-white mb-6 mt-8 text-center">👋 ようこそ！プロフィールを登録してください</h1>
+            <ProfileEditor />
+        </div>
     );
   }
 
-  // 🔽 プロフィール登録済みの場合、メインコンテンツを表示 🔽
+  // 編集モードの場合、編集画面をタブで表示
+  if (isEditingProfile || isEditingArtists) {
+    return (
+        <div className="p-4 max-w-2xl mx-auto mt-8">
+            {/* タブナビゲーション */}
+            <div className="flex border-b border-gray-700 mb-4">
+                <button
+                    onClick={() => { setActiveTab('profile'); setIsEditingProfile(true); setIsEditingArtists(false); }}
+                    className={`px-4 py-2 font-medium text-sm ${
+                        (activeTab === 'profile' || isEditingProfile)
+                            ? 'border-b-2 border-blue-500 text-blue-400'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    プロフィール編集
+                </button>
+                <button
+                    onClick={() => { setActiveTab('artists'); setIsEditingArtists(true); setIsEditingProfile(false); }}
+                    className={`px-4 py-2 font-medium text-sm ${
+                        (activeTab === 'artists' || isEditingArtists)
+                            ? 'border-b-2 border-blue-500 text-blue-400'
+                            : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                    アーティスト選択
+                </button>
+            </div>
+
+            {/* コンテンツの表示 */}
+            {(activeTab === 'profile' || isEditingProfile) && <ProfileEditor />}
+            {(activeTab === 'artists' || isEditingArtists) && <ArtistSelection />}
+            
+            <div className='flex justify-center mt-6'>
+                <button
+                    onClick={() => { setIsEditingProfile(false); setIsEditingArtists(false); }}
+                    className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                >
+                    メイン画面に戻る
+                </button>
+            </div>
+        </div>
+    );
+  }
+
+  // 登録済みで編集モードでない場合、メインコンテンツを表示
   return (
     <div className="p-4 max-w-2xl mx-auto">
       {/* プロフィール表示部分 */}
       {profile && (
         <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6 relative">
           
-          {/* 🔽 編集ボタンを追加 🔽 */}
-          <button
-            onClick={() => setIsEditing(true)}
-            className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm focus:outline-none focus:shadow-outline"
-          >
-            プロフィールを編集
-          </button>
+          {/* 🔽 編集ボタンのグループ化 🔽 */}
+          <div className="absolute top-4 right-4 flex space-x-2">
+            <button
+                onClick={() => { setIsEditingProfile(true); setActiveTab('profile'); }}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm"
+            >
+                プロフィール編集
+            </button>
+            <button
+                onClick={() => { setIsEditingArtists(true); setActiveTab('artists'); }}
+                className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-1 px-3 rounded text-sm"
+            >
+                アーティスト選択
+            </button>
+          </div>
           
           <div className="flex items-center space-x-4 mb-4">
             {(profileImageUrl || profile.images?.[0]?.url) && (
@@ -235,8 +376,7 @@ export default function Match() {
               <img
                 src={profileImageUrl || profile.images?.[0]?.url || ''}
                 alt={nickname || profile.display_name || 'プロフィール画像'}
-                className="rounded-full object-cover"
-                style={{ width: '40px', height: '40px' }} // ← プロフィール画像は少し大きめ
+                className="w-10 h-10 rounded-full object-cover" // Tailwindクラスを使用
               />
             )}
             <div>
@@ -265,18 +405,22 @@ export default function Match() {
                 <img
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="rounded-full object-cover"
-                  style={{ width: '150px', height: '150px' }}
+                  className="w-8 h-8 rounded-full object-cover" // Tailwindクラスを使用
                 />
               )}
-              <a
-                href={artist.external_urls.spotify}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-300 hover:underline font-medium"
-              >
-                {artist.name}
-              </a>
+              <div>
+                <a
+                  href={artist.external_urls.spotify}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-300 hover:underline font-medium"
+                >
+                  {artist.name}
+                </a>
+                {artist.genres && artist.genres.length > 0 && (
+                  <p className="text-gray-400 text-sm">{artist.genres.join(', ')}</p>
+                )}
+              </div>
             </li>
           ))}
         </ul>
