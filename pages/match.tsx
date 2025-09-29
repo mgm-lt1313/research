@@ -367,6 +367,8 @@ export default function Match() {
     );
   }
 
+
+
   // 登録済みで編集モードでない場合、メインコンテンツを表示
   return (
     <div className="p-4 max-w-2xl mx-auto">
@@ -418,7 +420,7 @@ export default function Match() {
       )}
 
       {/* 🔽 1. PageRankによる推薦アーティストの表示 (新規追加) 🔽 */}
-      {recommendedArtists.length > 0 && (
+      {recommendedArtists && recommendedArtists.length > 0 && (
         <>
           <h2 className="text-xl font-bold mt-8 text-white mb-4">✨ PageRankによる推薦アーティスト (マッチングに使用)</h2>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,7 +448,7 @@ export default function Match() {
       )}
       
       {/* 🔽 2. 選択されたアーティストのリスト (追加) 🔽 */}
-      {selectedArtists.length > 0 && (
+      {selectedArtists && selectedArtists.length > 0 && (
         <>
             <h2 className="text-xl font-bold mt-8 text-white mb-4">あなたが選択したアーティスト</h2>
             <ul className="flex flex-wrap gap-2 mb-8">
