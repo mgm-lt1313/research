@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Spotify APIのトークンエンドポイント
-  const tokenUrl = 'https://accounts.spotify.com/api/token';
+  const tokenUrl = 'https://accounts.spotify.com/api/token'; 
 
   // トークン取得のためのリクエストオプション
   const authOptions = {
