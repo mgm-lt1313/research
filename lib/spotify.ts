@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Spotify APIのベースURL
-const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1';
+const SPOTIFY_BASE_URL = 'https://api.spotify.com';
 
 // Spotify APIのプロフィール情報の型定義
 export interface SpotifyProfile {
@@ -56,7 +56,7 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
   let hasNext = true;
 
   while (hasNext) {
-    const url = `https://api.spotify.com/v1/me/following?type=artist&limit=50${after ? `&after=${after}` : ''}`;
+    const url = `https://api.spotify.com/me/following?type=artist&limit=50${after ? `&after=${after}` : ''}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
