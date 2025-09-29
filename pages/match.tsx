@@ -394,7 +394,7 @@ export default function Match() {
           
           <div className="flex items-center space-x-4 mb-4">
             {(profileImageUrl || profile.images?.[0]?.url) && (
-              // eslint-disable-next-line @next/next/no-img-element
+              
               <Image
                 src={profileImageUrl || profile.images?.[0]?.url || ''}
                 alt={nickname || profile.display_name || 'プロフィール画像'}

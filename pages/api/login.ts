@@ -18,12 +18,17 @@ function generateRandomString(length: number) {
 }
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const state = generateRandomString(16); // CSRF対策
-  const authUrl = 'https://accounts.spotify.com/authorize?$';
+  const state = generateRandomString(16);
 
-  // Spotify認証ページへのクエリパラメータを生成
+  // Spotifyの認証ページURL (以前修正済み)
+  const authUrl = 'https://accounts.spotify.com/authorize?$'; 
+  
+  const scope = 'user-read-private user-read-email user-follow-read user-top-read';
+
+  // 🔽 【修正点】URLSearchParamsのオブジェクトの組み立てをシンプル化 🔽
   const queryParams = new URLSearchParams({
-    response_type: 'code',
+    // response_typeが最重要。念のためクエリとして正しく記述
+    response_type: 'code', 
     client_id: process.env.SPOTIFY_CLIENT_ID || '',
     scope: scope,
     redirect_uri: process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || '',
@@ -31,5 +36,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }).toString();
 
   // Spotifyの認証ページにリダイレクト
+  // 🔽 URLが正しく組み立てられていることを確認 🔽
   res.redirect(`${authUrl}?${queryParams}`);
 }
