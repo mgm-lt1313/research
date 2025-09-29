@@ -144,7 +144,7 @@ export default function Match() {
       
       setIsNewUser(false);
       setIsEditingProfile(false);
-    } catch (e) {
+    } catch (_e) {
       // ... エラー処理 ...
     } finally {
       setLoading(false);
