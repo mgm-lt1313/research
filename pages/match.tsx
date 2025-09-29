@@ -37,6 +37,7 @@ export default function Match() {
 
   // 🔽 新しいステート 🔽
   const [selectedArtists, setSelectedArtists] = useState<SelectedArtist[]>([]); // 選択中のアーティスト
+  const [recommendedArtists, setRecommendedArtists] = useState<SelectedArtist[]>([]); // 推薦されたアーティスト
   const [activeTab, setActiveTab] = useState<MatchTab>('profile'); // 現在表示中のタブ
 
   const [isNewUser, setIsNewUser] = useState<boolean>(true); // 新規ユーザーかどうか
@@ -156,7 +157,8 @@ export default function Match() {
   // アーティスト選択保存ハンドラ (新規)
   const handleArtistSave = async () => {
     if (!profile) return setError('Spotifyプロフィールが読み込まれていません。');
-    if (selectedArtists.length === 0) {
+    // access_token が確実に存在することを確認
+    if (selectedArtists.length === 0 || !access_token) {
         alert('アーティストを1人以上選択してください。');
         return;
     }
@@ -165,23 +167,45 @@ export default function Match() {
     setError(null);
 
     try {
+        // 1. 選択アーティストをDBに保存
         await axios.post('/api/artists/save', {
             spotifyUserId: profile.id,
-            selectedArtists: selectedArtists.map(a => ({ id: a.id, name: a.name })), // IDと名前だけ送信
+            selectedArtists: selectedArtists.map(a => ({ id: a.id, name: a.name })),
         });
 
-        alert('マッチング用アーティストを保存しました！');
+        // 2. ネットワーク構築とPageRank計算APIを呼び出す (新規追加)
+        const recommendRes = await axios.post('/api/artists/recommend', {
+            accessToken: access_token, // Spotifyトークンを渡す
+            spotifyUserId: profile.id,
+            selectedArtistIds: selectedArtists.map(a => a.id),
+        });
+
+        // 3. 結果の取得と表示
+        const newRecommended = recommendRes.data.top5.map((a: { id: string, name: string }) => ({
+            id: a.id,
+            name: a.name,
+            // フォローアーティストリスト (artists) から画像URLを検索して埋める
+            image: artists.find(art => art.id === a.id)?.images?.[0]?.url || null,
+        }));
+
+        setRecommendedArtists(newRecommended);
+
+
+        alert('マッチング用アーティストを保存し、推薦アーティストを抽出しました！');
         setIsEditingArtists(false);
+
     } catch (e) {
+        console.error('アーティスト保存またはPageRank計算に失敗しました:', e);
+        // エラーメッセージをより包括的にする
         if (axios.isAxiosError(e)) {
-            setError(`アーティストの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
+            setError(`推薦処理中にエラーが発生しました: ${e.response?.status || '不明'}。詳細をコンソールで確認してください。`);
         } else {
             setError('予期せぬエラーが発生しました。');
         }
     } finally {
         setLoading(false);
     }
-  };
+};
 
 
   if (loading) {
@@ -373,10 +397,13 @@ export default function Match() {
                 src={profileImageUrl || profile.images?.[0]?.url || ''}
                 alt={nickname || profile.display_name || 'プロフィール画像'}
                 className="w-10 h-10 rounded-full object-cover" // Tailwindクラスを使用
+                width={40} // 👈 追加: w-10 h-10 に合わせたサイズ
+                height={40} // 👈 追加: w-10 h-10 に合わせたサイズ
               />
             )}
             <div>
               <h1 className="text-2xl font-bold text-white">こんにちは、{nickname || profile.display_name} さん！</h1>
+              {/* Spotify ID と Bio の表示を削除しました */}
               <a
                 href={profile.external_urls.spotify}
                 target="_blank"

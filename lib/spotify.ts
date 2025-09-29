@@ -74,3 +74,20 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
 
   return artists;
 }
+
+// Spotify APIの関連アーティストレスポンスの型
+export interface RelatedArtistsResponse {
+  artists: SpotifyArtist[];
+}
+
+/**
+ * 特定のアーティストに関連するアーティストのリストを取得
+ * @param accessToken Spotify APIのアクセストークン
+ * @param artistId 関連アーティストを取得したい元のアーティストID
+ */
+export const getRelatedArtists = async (accessToken: string, artistId: string): Promise<SpotifyArtist[]> => {
+  const { data } = await axios.get<RelatedArtistsResponse>(`${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return data.artists || [];
+};
