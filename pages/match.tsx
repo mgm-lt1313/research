@@ -233,9 +233,10 @@ export default function Match() {
             {(profileImageUrl || profile.images?.[0]?.url) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={profileImageUrl || profile.images[0].url}
-                alt={nickname || profile.display_name}
-                className="w-6 h-6 rounded-full object-cover"
+                src={profileImageUrl || profile.images?.[0]?.url || ''}
+                alt={nickname || profile.display_name || 'プロフィール画像'}
+                className="rounded-full object-cover"
+                style={{ width: '40px', height: '40px' }} // ← プロフィール画像は少し大きめ
               />
             )}
             <div>
@@ -264,7 +265,8 @@ export default function Match() {
                 <img
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="w-6 h-6 rounded-full object-cover" // 🔽 修正済み 🔽
+                  className="rounded-full object-cover"
+                  style={{ width: '20px', height: '20px' }} // ← ここを追加
                 />
               )}
               <div>
