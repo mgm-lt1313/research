@@ -254,38 +254,31 @@ export default function Match() {
             {loading ? '保存中...' : '選択したアーティストを保存'}
         </button>
 
-        <ul className="grid grid-cols-2 md:grid-cols-3 gap-4 h-96 overflow-y-scroll p-2 border border-gray-700 rounded-md">
-            {artists.map((artist) => {
-                const isSelected = selectedArtists.some(sa => sa.id === artist.id);
-                const isDisabled = !isSelected && selectedArtists.length >= 3;
-                return (
-                    <li 
-                        key={artist.id} 
-                        onClick={() => toggleArtistSelection(artist)}
-                        className={`
-                            p-3 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer transition-all duration-150
-                            ${isDisabled 
-                                ? 'bg-gray-700 opacity-50 cursor-not-allowed'
-                                : isSelected 
-                                    ? 'bg-green-800 border-2 border-green-400' 
-                                    : 'bg-gray-700 hover:bg-gray-600'
-                            }
-                        `}
-                    >
-                        {artist.images?.[0]?.url && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                                src={artist.images[0].url}
-                                alt={artist.name}
-                                className="w-10 h-10 rounded-full object-cover" // 適切なサイズ
-                            />
-                        )}
-                        <div className="text-sm font-medium text-white truncate">
-                            {artist.name}
-                        </div>
-                    </li>
-                );
-            })}
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {artists.map((artist) => (
+            <li key={artist.id} className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3">
+              {artist.images?.[0]?.url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={artist.images[0].url}
+                  alt={artist.name}
+                  className="rounded-full object-cover"
+                  style={{ width: '150px', height: '150px' }} // ← ここを変更
+                />
+              )}
+              <div>
+                <a
+                  href={artist.external_urls.spotify}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-300 hover:underline font-medium"
+                >
+                  {artist.name}
+                </a>
+                {/* ジャンル表示は削除 */}
+              </div>
+            </li>
+          ))}
         </ul>
     </div>
   );
@@ -406,7 +399,8 @@ export default function Match() {
                 <img
                   src={artist.images[0].url}
                   alt={artist.name}
-                  className="w-8 h-8 rounded-full object-cover" // Tailwindクラスを使用
+                  className="rounded-full object-cover"
+                  style={{ width: '150px', height: '150px' }} // ← ここを変更
                 />
               )}
               <div>
