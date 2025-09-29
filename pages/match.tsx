@@ -266,9 +266,9 @@ export default function Match() {
                 <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
+                  width={32}  // 👈 w-8 h-8 (32px) に合わせた数値
+                  height={32} // 👈 w-8 h-8 (32px) に合わせた数値
+                  className="w-8 h-8 rounded-full object-cover" // 👈 w-8 h-8 クラスも追加
                 />
               )}
               <a
@@ -402,9 +402,9 @@ export default function Match() {
                 <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
+                  width={32}  // 👈 w-8 h-8 (32px) に合わせた数値
+                  height={32} // 👈 w-8 h-8 (32px) に合わせた数値
+                  className="w-8 h-8 rounded-full object-cover" // 👈 w-8 h-8 クラスも追加
                 />
               )}
               <a
