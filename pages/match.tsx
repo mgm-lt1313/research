@@ -266,22 +266,17 @@ export default function Match() {
                   src={artist.images[0].url}
                   alt={artist.name}
                   className="rounded-full object-cover"
-                  style={{ width: '50px', height: '50px' }} // ← ここを追加
+                  style={{ width: '40px', height: '40px' }}
                 />
               )}
-              <div>
-                <a
-                  href={artist.external_urls.spotify}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-300 hover:underline font-medium"
-                >
-                  {artist.name}
-                </a>
-                {artist.genres && artist.genres.length > 0 && (
-                  <p className="text-gray-400 text-sm">{artist.genres.join(', ')}</p>
-                )}
-              </div>
+              <a
+                href={artist.external_urls.spotify}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-300 hover:underline font-medium"
+              >
+                {artist.name}
+              </a>
             </li>
           ))}
         </ul>
