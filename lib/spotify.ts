@@ -40,12 +40,37 @@ export const getMyProfile = async (accessToken: string): Promise<SpotifyProfile>
  * 現在のユーザーがフォローしているアーティストのリストを取得
  * @param accessToken Spotify APIのアクセストークン
  */
-export const getMyFollowingArtists = async (accessToken: string): Promise<SpotifyArtist[]> => {
-  const { data } = await axios.get<{ artists: { items: SpotifyArtist[] } }>(
-    `${SPOTIFY_BASE_URL}/me/following?type=artist`,
-    {
+interface SpotifyFollowingArtistsResponse {
+  artists: {
+    items: SpotifyArtist[];
+    cursors: { after?: string };
+    total: number;
+    limit: number;
+    href: string;
+  };
+}
+
+export async function getMyFollowingArtists(accessToken: string): Promise<SpotifyArtist[]> {
+  let artists: SpotifyArtist[] = [];
+  let after: string | undefined = undefined;
+  let hasNext = true;
+
+  while (hasNext) {
+    const url = `https://api.spotify.com/v1/me/following?type=artist&limit=50${after ? `&after=${after}` : ''}`;
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data: SpotifyFollowingArtistsResponse = await res.json();
+
+    const items = data.artists?.items || [];
+    artists = artists.concat(items);
+
+    if (items.length === 50 && data.artists.cursors?.after) {
+      after = data.artists.cursors.after;
+    } else {
+      hasNext = false;
     }
-  );
-  return data.artists.items;
-};
+  }
+
+  return artists;
+}
