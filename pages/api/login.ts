@@ -19,6 +19,7 @@ function generateRandomString(length: number) {
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const state = generateRandomString(16); // CSRF対策
+  const authUrl = 'https://accounts.spotify.com/authorize?$';
 
   // Spotify認証ページへのクエリパラメータを生成
   const queryParams = new URLSearchParams({
@@ -30,5 +31,5 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }).toString();
 
   // Spotifyの認証ページにリダイレクト
-  res.redirect(`https://accounts.spotify.com/authorize?${queryParams}`);
+  res.redirect(`${authUrl}?${queryParams}`);
 }

@@ -56,7 +56,8 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
   let hasNext = true;
 
   while (hasNext) {
-    const url = `https://api.spotify.com/v1/me/following?type=artist&limit=50${after ? `&after=${after}` : ''}`;
+    const url = `${SPOTIFY_BASE_URL}/me/following?type=artist&limit=50${after ? `&after=${after}` : ''}`; 
+    
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
