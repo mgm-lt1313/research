@@ -86,6 +86,7 @@ export interface RelatedArtistsResponse {
  * @param artistId 関連アーティストを取得したい元のアーティストID
  */
 export const getRelatedArtists = async (accessToken: string, artistId: string): Promise<SpotifyArtist[]> => {
+  // 正しいURL: https://api.spotify.com/v1/artists/{artist_id}/related-artists
   const { data } = await axios.get<RelatedArtistsResponse>(`${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
