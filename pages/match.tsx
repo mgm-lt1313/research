@@ -235,7 +235,7 @@ export default function Match() {
               <img
                 src={profileImageUrl || profile.images[0].url}
                 alt={nickname || profile.display_name}
-                className="w-20 h-20 rounded-full object-cover"
+                className="w-6 h-6 rounded-full object-cover"
               />
             )}
             <div>
