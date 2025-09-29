@@ -266,7 +266,7 @@ export default function Match() {
                   src={artist.images[0].url}
                   alt={artist.name}
                   className="rounded-full object-cover"
-                  style={{ width: '40px', height: '40px' }}
+                  style={{ width: '200px', height: '200px' }}
                 />
               )}
               <a
