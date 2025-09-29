@@ -48,10 +48,10 @@ export default function Match() {
         setArtists(artistsData);
 
         // 1. 既存プロフィールを確認するAPIを呼び出す
-        const existingProfileRes = await axios.get<{}, { data: { profile: UserProfile | null } }>(
+        const existingProfileRes = await axios.get<{ profile: UserProfile | null }>(
           `/api/profile/get?spotifyUserId=${profileData.id}`
         );
-
+        
         const existingProfile = existingProfileRes.data.profile;
 
         if (existingProfile) {
