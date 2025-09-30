@@ -13,8 +13,7 @@ import { PoolClient } from 'pg'; // データベースクライアントの型�
 // データベースからユーザーの内部IDを取得
 async function getUserIdBySpotifyId(client: PoolClient, spotifyUserId: string): Promise<number | null> {
     const res = await client.query('SELECT id FROM users WHERE spotify_user_id = $1', [spotifyUserId]);
-    console.log(`[DEBUG_DB] Query for user ID ${spotifyUserId} result count: ${res.rows.length}`); // 👈 デバッグ追加
-    return res.rows.length > 0 ? res.rows[0].id : null;
+        return res.rows.length > 0 ? res.rows[0].id : null;
 }
 
 // ----------------------------------------------------
@@ -41,8 +40,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         const graph = new Graph();
-        // 🔽 修正1: デバッグログの追加 🔽
-        console.log(`[DEBUG] Received ${selectedArtistIds.length} seed artists. First ID: ${selectedArtistIds[0]}`);
 
         // 1. ネットワーク構築 (BFSのような処理)
         const seedArtistIds = new Set(selectedArtistIds);
