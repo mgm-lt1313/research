@@ -40,6 +40,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         const graph = new Graph();
+        // 🔽 修正1: デバッグログの追加 🔽
+        console.log(`[DEBUG] Received ${selectedArtistIds.length} seed artists. First ID: ${selectedArtistIds[0]}`);
 
         // 1. ネットワーク構築 (BFSのような処理)
         const seedArtistIds = new Set(selectedArtistIds);
@@ -55,6 +57,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         for (const artistId of queue) {
+            // 🔽 修正2: APIコール直前にデバッグログを追加 🔽
+            console.log(`[DEBUG] Calling related artists API for ID: ${artistId}`);
+            
             // 既に PageRank計算のために名前と画像は取得済みなので、ここではartistIdだけを使って関連アーティストを取得
             const relatedArtists = await getRelatedArtists(accessToken, artistId);
 
