@@ -13,6 +13,7 @@ import { PoolClient } from 'pg'; // データベースクライアントの型�
 // データベースからユーザーの内部IDを取得
 async function getUserIdBySpotifyId(client: PoolClient, spotifyUserId: string): Promise<number | null> {
     const res = await client.query('SELECT id FROM users WHERE spotify_user_id = $1', [spotifyUserId]);
+    console.log(`[DEBUG_DB] Query for user ID ${spotifyUserId} result count: ${res.rows.length}`); // 👈 デバッグ追加
     return res.rows.length > 0 ? res.rows[0].id : null;
 }
 
@@ -148,6 +149,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     } catch (apiError) {
         console.error('API Error during network construction:', apiError);
+        console.error('Full Error Detail:', apiError); 
         res.status(500).json({ message: 'Failed to generate recommendations due to API/Graph error.' });
     }
 }
