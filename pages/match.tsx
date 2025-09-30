@@ -43,6 +43,14 @@ export default function Match() {
   const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false); // プロフィール編集モードかどうか
   const [isEditingArtists, setIsEditingArtists] = useState<boolean>(false); // アーティスト編集モードかどうか
 
+  // 🔽 新しい State の追加 🔽
+interface MatchResult {
+    matched_user_id: number;
+    score: number;
+    // ... 将来的にニックネームなどの情報も追加
+}
+const [matches, setMatches] = useState<MatchResult[]>([]);
+
 
   useEffect(() => {
     if (!access_token) {
@@ -75,6 +83,12 @@ export default function Match() {
             setProfileImageUrl(existingProfile.profile_image_url || '');
             setBio(existingProfile.bio || '');
             setIsNewUser(false); 
+            // 🔽 【新規】マッチング計算APIを呼び出す 🔽
+            const matchRes = await axios.post('/api/match/calculate', {
+                spotifyUserId: profileData.id,
+            });
+            
+            setMatches(matchRes.data.matches);
         } else {
             setNickname(profileData.display_name || '');
             setProfileImageUrl(profileData.images?.[0]?.url || '');
@@ -389,6 +403,25 @@ export default function Match() {
           </div>
         </div>
       )}
+       {/* 🔽 【新規】マッチング結果の表示 🔽 */}
+      {matches.length > 0 && (
+        <>
+          <h2 className="text-xl font-bold mt-8 text-white mb-4 border-b border-gray-700 pb-2">🔥 おすすめのマッチング</h2>
+          <ul className="space-y-4 mb-8">
+            {matches.map((match) => (
+              <li key={match.matched_user_id} className="bg-green-800 p-4 rounded-lg shadow-md flex justify-between items-center">
+                <span className="text-white font-semibold">
+                  ユーザー ID: {match.matched_user_id}
+                </span>
+                <span className="bg-yellow-400 text-gray-900 text-sm font-bold px-3 py-1 rounded-full">
+                  一致アーティスト数: {match.score}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      
       <h2 className="text-xl font-bold mt-4 text-white mb-4">フォロー中のアーティスト</h2>
       {artists.length > 0 ? (
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
