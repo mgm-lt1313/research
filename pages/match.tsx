@@ -37,7 +37,6 @@ export default function Match() {
 
   // 🔽 新しいステート 🔽
   const [selectedArtists, setSelectedArtists] = useState<SelectedArtist[]>([]); // 選択中のアーティスト
-  const [recommendedArtists, setRecommendedArtists] = useState<SelectedArtist[]>([]); // 推薦されたアーティスト
   const [activeTab, setActiveTab] = useState<MatchTab>('profile'); // 現在表示中のタブ
 
   const [isNewUser, setIsNewUser] = useState<boolean>(true); // 新規ユーザーかどうか
@@ -157,8 +156,7 @@ export default function Match() {
   // アーティスト選択保存ハンドラ (新規)
   const handleArtistSave = async () => {
     if (!profile) return setError('Spotifyプロフィールが読み込まれていません。');
-    // access_token が確実に存在することを確認
-    if (selectedArtists.length === 0 || !access_token) {
+    if (selectedArtists.length === 0) {
         alert('アーティストを1人以上選択してください。');
         return;
     }
@@ -167,45 +165,23 @@ export default function Match() {
     setError(null);
 
     try {
-        // 1. 選択アーティストをDBに保存
         await axios.post('/api/artists/save', {
             spotifyUserId: profile.id,
-            selectedArtists: selectedArtists.map(a => ({ id: a.id, name: a.name })),
+            selectedArtists: selectedArtists.map(a => ({ id: a.id, name: a.name })), // IDと名前だけ送信
         });
 
-        // 2. ネットワーク構築とPageRank計算APIを呼び出す (新規追加)
-        const recommendRes = await axios.post('/api/artists/recommend', {
-            accessToken: access_token, // Spotifyトークンを渡す
-            spotifyUserId: profile.id,
-            selectedArtistIds: selectedArtists.map(a => a.id),
-        });
-
-        // 3. 結果の取得と表示
-        const newRecommended = recommendRes.data.top5.map((a: { id: string, name: string }) => ({
-            id: a.id,
-            name: a.name,
-            // フォローアーティストリスト (artists) から画像URLを検索して埋める
-            image: artists.find(art => art.id === a.id)?.images?.[0]?.url || null,
-        }));
-
-        setRecommendedArtists(newRecommended);
-
-
-        alert('マッチング用アーティストを保存し、推薦アーティストを抽出しました！');
+        alert('マッチング用アーティストを保存しました！');
         setIsEditingArtists(false);
-
     } catch (e) {
-        console.error('アーティスト保存またはPageRank計算に失敗しました:', e);
-        // エラーメッセージをより包括的にする
         if (axios.isAxiosError(e)) {
-            setError(`推薦処理中にエラーが発生しました: ${e.response?.status || '不明'}。詳細をコンソールで確認してください。`);
+            setError(`アーティストの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
         } else {
             setError('予期せぬエラーが発生しました。');
         }
     } finally {
         setLoading(false);
     }
-};
+  };
 
 
   if (loading) {
@@ -367,8 +343,6 @@ export default function Match() {
     );
   }
 
-
-
   // 登録済みで編集モードでない場合、メインコンテンツを表示
   return (
     <div className="p-4 max-w-2xl mx-auto">
@@ -394,18 +368,15 @@ export default function Match() {
           
           <div className="flex items-center space-x-4 mb-4">
             {(profileImageUrl || profile.images?.[0]?.url) && (
-              
+              // eslint-disable-next-line @next/next/no-img-element
               <Image
                 src={profileImageUrl || profile.images?.[0]?.url || ''}
                 alt={nickname || profile.display_name || 'プロフィール画像'}
                 className="w-10 h-10 rounded-full object-cover" // Tailwindクラスを使用
-                width={40} // w-10 h-10 に合わせたサイズ
-                height={40} // w-10 h-10 に合わせたサイズ
               />
             )}
             <div>
               <h1 className="text-2xl font-bold text-white">こんにちは、{nickname || profile.display_name} さん！</h1>
-              {/* Spotify ID と Bio の表示を削除済み */}
               <a
                 href={profile.external_urls.spotify}
                 target="_blank"
@@ -418,50 +389,6 @@ export default function Match() {
           </div>
         </div>
       )}
-
-      {/* 🔽 1. PageRankによる推薦アーティストの表示 (新規追加) 🔽 */}
-      {recommendedArtists && recommendedArtists.length > 0 && (
-        <>
-          <h2 className="text-xl font-bold mt-8 text-white mb-4">✨ PageRankによる推薦アーティスト (マッチングに使用)</h2>
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recommendedArtists.map((artist) => (
-              <li 
-                key={artist.id} 
-                className="bg-purple-800 p-4 rounded-lg shadow-sm flex items-center space-x-3 border border-purple-400"
-              >
-                {artist.image && (
-                  <Image 
-                    src={artist.image} 
-                    alt={artist.name} 
-                    width={32} 
-                    height={32} 
-                    className="w-8 h-8 rounded-full object-cover" 
-                  />
-                )}
-                <div className="text-sm font-medium text-white">
-                    {artist.name} <span className="text-purple-300 text-xs">(推薦)</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      
-      {/* 🔽 2. 選択されたアーティストのリスト (追加) 🔽 */}
-      {selectedArtists && selectedArtists.length > 0 && (
-        <>
-            <h2 className="text-xl font-bold mt-8 text-white mb-4">あなたが選択したアーティスト</h2>
-            <ul className="flex flex-wrap gap-2 mb-8">
-                {selectedArtists.map(artist => (
-                    <li key={artist.id} className="bg-green-700 text-white text-sm font-semibold px-3 py-1 rounded-full flex items-center space-x-2">
-                        {artist.name}
-                    </li>
-                ))}
-            </ul>
-        </>
-      )}
-      
-      {/* 3. フォロー中のアーティストリスト (既存) */}
       <h2 className="text-xl font-bold mt-4 text-white mb-4">フォロー中のアーティスト</h2>
       {artists.length > 0 ? (
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -475,9 +402,9 @@ export default function Match() {
                 <Image
                   src={artist.images[0].url}
                   alt={artist.name}
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 rounded-full object-cover"
+                  width={32}  // 👈 w-8 h-8 (32px) に合わせた数値
+                  height={32} // 👈 w-8 h-8 (32px) に合わせた数値
+                  className="w-8 h-8 rounded-full object-cover" // 👈 w-8 h-8 クラスも追加
                 />
               )}
               <a

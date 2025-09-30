@@ -56,9 +56,7 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
   let hasNext = true;
 
   while (hasNext) {
-    // 🔽 URLを正しい形式に修正（SPOTIFY_BASE_URLを使わずインライン化） 🔽
     const url = `https://api.spotify.com/v1/me/following?type=artist&limit=50${after ? `&after=${after}` : ''}`;
-    
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -76,23 +74,3 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
 
   return artists;
 }
-
-// Spotify APIの関連アーティストレスポンスの型
-export interface RelatedArtistsResponse {
-  artists: SpotifyArtist[];
-}
-
-/**
- * 特定のアーティストに関連するアーティストのリストを取得
- * @param accessToken Spotify APIのアクセストークン
- * @param artistId 関連アーティストを取得したい元のアーティストID
- */
-export const getRelatedArtists = async (accessToken: string, artistId: string): Promise<SpotifyArtist[]> => {
-  // 🔽 【修正箇所】SPOTIFY_BASE_URLを使わず、正しいURLを直接定義する 🔽
-  const url = `https://api.spotify.com/v1/artists/${artistId}/related-artists`;
-  
-  const { data } = await axios.get<RelatedArtistsResponse>(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  return data.artists || [];
-};
