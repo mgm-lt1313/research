@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Spotify APIのベースURL
-const SPOTIFY_BASE_URL = 'https://api.spotify.com';
+const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1';
 
 // Spotify APIのプロフィール情報の型定義
 export interface SpotifyProfile {
