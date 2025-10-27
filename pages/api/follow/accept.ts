@@ -1,4 +1,4 @@
-// pages/api/follow/accept.ts (新規作成)
+// pages/api/follow/accept.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import pool from '../../../lib/db';
 import { PoolClient } from 'pg';
@@ -11,45 +11,51 @@ async function getUserIdBySpotifyId(client: PoolClient, spotifyUserId: string): 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).end();
 
-    const { selfSpotifyId, followId } = req.body;
+    const { selfSpotifyId, followId: followIdInput } = req.body; // 👈 変数名を変更
 
-    if (!selfSpotifyId || !followId) {
+    if (!selfSpotifyId || followIdInput === undefined || followIdInput === null) { // 👈 undefined/null チェックを追加
         return res.status(400).json({ message: 'Missing selfSpotifyId or followId.' });
     }
-    // followId は数値 (bigint) か確認
-    if (typeof followId !== 'number') {
-        return res.status(400).json({ message: 'Invalid followId format, expected number.' });
+
+    // --- 🔽 型チェックと変換 ---
+    let followId: number;
+    if (typeof followIdInput === 'string') {
+        followId = parseInt(followIdInput, 10); // 文字列なら数値に変換
+        if (isNaN(followId)) { // 変換に失敗したらエラー
+             return res.status(400).json({ message: 'Invalid followId format, expected number or numeric string.' });
+        }
+    } else if (typeof followIdInput === 'number') {
+        followId = followIdInput; // もともと数値ならそのまま使う
+    } else {
+        // 数値でも文字列でもない場合はエラー
+        return res.status(400).json({ message: 'Invalid followId type.' });
     }
+    // --- 🔼 型チェックと変換 ---
+
 
     const client = await pool.connect();
     try {
         const selfId = await getUserIdBySpotifyId(client, selfSpotifyId); // string | null (uuid)
         if (!selfId) return res.status(404).json({ message: 'User not found.' });
 
-        // 指定された followId のレコードが、
-        // 1. 自分がフォローされた側 (following_id = selfId) であり、
-        // 2. 現在のステータスが 'pending' であること
-        // を確認した上で、status を 'approved' に更新する。
+        // followId (数値に変換済み) を使って更新
         const updateRes = await client.query(
             `UPDATE follows
              SET status = 'approved'
-             WHERE id = $1                 -- 指定された followId (bigint)
-               AND following_id = $2     -- 自分がフォローされた側 (uuid)
-               AND status = 'pending'      -- 現在承認待ちであること
-             RETURNING id`, // 更新に成功したら id (bigint) を返す
-            [followId, selfId]
+             WHERE id = $1                 -- bigint (数値)
+               AND following_id = $2     -- uuid (文字列)
+               AND status = 'pending'
+             RETURNING id`,
+            [followId, selfId] // 👈 変換後の followId を使用
         );
 
-        // 更新された行が 0 行の場合 (条件に一致しなかった場合)
         if (updateRes.rowCount === 0) {
-            // 既に承認済みか、リクエストが存在しない、または自分宛でない可能性
             return res.status(404).json({ message: 'Pending follow request not found for this user, or already approved/rejected.' });
         }
 
-        // 承認成功
         res.status(200).json({ message: 'Match approved successfully!', match_id: updateRes.rows[0].id });
 
-    } catch (dbError: unknown) { // unknown 型を使用
+    } catch (dbError: unknown) {
         console.error('Failed to accept follow request:', dbError);
         const message = dbError instanceof Error ? dbError.message : 'Unknown database error';
         res.status(500).json({ message: `Database error while accepting follow: ${message}` });
