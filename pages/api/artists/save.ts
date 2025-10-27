@@ -113,6 +113,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const sortedRanks = Object.entries(ranks)
             .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
 
+        // ▼▼▼ デバッグログ追加 ▼▼▼
+        console.log(`[API Save] PageRank calculated. Total nodes in graph: ${graph.order}, Total ranks: ${sortedRanks.length}`);
+        // ▲▲▲ デバッグログ追加 ▲▲▲
+
         // 選択されたアーティスト（元）のIDセット
         const selectedIds = new Set(selectedArtists.map(a => a.id));
         
@@ -131,6 +135,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 break;
             }
         }
+
+        // ▼▼▼ デバッグログ追加 ▼▼▼
+        // Vercelのログで、最終的な算出結果が何件だったか確認します。
+        console.log(`[API Save] Top 5 calculated artists (result): ${top5Calculated.length} found.`);
+        // ▲▲▲ デバッグログ追加 ▲▲▲
 
         // 5. 既存の「算出アーティスト」をすべて削除
         await client.query('DELETE FROM calculated_artists WHERE user_id = $1', [userId]);

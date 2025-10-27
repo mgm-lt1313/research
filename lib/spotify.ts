@@ -103,10 +103,20 @@ export const getArtistRelatedArtists = async (
         headers: { Authorization: `Bearer ${accessToken}` },
       }
     );
+
+// ▼▼▼ デバッグログ追加 ▼▼▼
+    // Vercelのログで、Spotify APIが何件の関連アーティストを返したか確認します。
+    console.log(`[Spotify API] Related artists for ${artistId}: ${data.artists.length} found.`);
+    // ▲▲▲ デバッグログ追加 ▲▲▲
+
     // 関連アーティストは最大10人まで取得（多すぎると計算が重くなるため）
     return data.artists.slice(0, 10);
   } catch (error) {
     console.error(`Failed to get related artists for ${artistId}:`, error);
+    // 404以外のエラー（401認証エラーなど）もここでキャッチされます
+    // ▼▼▼ エラーログ強化 ▼▼▼
+    console.error(`Failed to get related artists for ${artistId}:`, error.response?.status, error.message);
+    // ▲▲▲ エラーログ強化 ▲▲▲
     return []; // エラー時は空配列を返す
   }
 };
