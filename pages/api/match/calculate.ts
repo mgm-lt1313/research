@@ -1,24 +1,22 @@
+// pages/api/match/calculate.ts (修正済み・全体)
 import type { NextApiRequest, NextApiResponse } from 'next';
 import pool from '../../../lib/db';
 import { PoolClient } from 'pg';
 
-// DBからユーザーの内部IDを取得するヘルパー関数
-async function getUserIdBySpotifyId(client: PoolClient, spotifyUserId: string): Promise<number | null> {
+async function getUserIdBySpotifyId(client: PoolClient, spotifyUserId: string): Promise<string | null> {
     const res = await client.query('SELECT id FROM users WHERE spotify_user_id = $1', [spotifyUserId]);
     return res.rows.length > 0 ? res.rows[0].id : null;
 }
 
-// 全ユーザーの選択アーティストを取得するヘルパー関数
 interface UserArtists {
-    user_id: number;
+    user_id: string; // uuid
     spotify_artist_id: string;
     artist_name: string;
 }
 
-async function getAllSelectedArtists(client: PoolClient): Promise<Map<number, UserArtists[]>> {
+async function getAllSelectedArtists(client: PoolClient): Promise<Map<string, UserArtists[]>> {
     const res = await client.query('SELECT user_id, spotify_artist_id, artist_name FROM selected_artists');
-    
-    const userMap = new Map<number, UserArtists[]>();
+    const userMap = new Map<string, UserArtists[]>(); // uuid
     for (const row of res.rows) {
         if (!userMap.has(row.user_id)) {
             userMap.set(row.user_id, []);
@@ -32,78 +30,60 @@ async function getAllSelectedArtists(client: PoolClient): Promise<Map<number, Us
     return userMap;
 }
 
-// DBから全ユーザーのプロフィール情報を取得するヘルパー関数
 interface UserProfile {
-    user_id: number;
+    user_id: string; // uuid
     nickname: string;
     profile_image_url: string | null;
     bio: string | null;
 }
 
-async function getAllUserProfiles(client: PoolClient): Promise<Map<number, UserProfile>> {
+async function getAllUserProfiles(client: PoolClient): Promise<Map<string, UserProfile>> {
     const res = await client.query('SELECT id as user_id, nickname, profile_image_url, bio FROM users');
-    
-    const userMap = new Map<number, UserProfile>();
+    const userMap = new Map<string, UserProfile>(); // uuid
     for (const row of res.rows) {
         userMap.set(row.user_id, row);
     }
     return userMap;
 }
 
-// マッチング結果の型定義 (プロフィール情報を追加)
 interface MatchResult {
-    matched_user_id: number;
+    matched_user_id: string; // uuid
     score: number;
-    profile: Omit<UserProfile, 'user_id'> | null; // 相手のプロフィール
-    sharedArtists: string[]; // 共有アーティストID
+    profile: Omit<UserProfile, 'user_id'> | null;
+    sharedArtists: string[];
 }
-
-// 🔼🔼🔼 --- ここまで追加 --- 🔼🔼🔼
-
-// ----------------------------------------------------
-// メインAPIハンドラ
-// ----------------------------------------------------
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
-
     const { spotifyUserId } = req.body;
-
     if (!spotifyUserId) {
         return res.status(400).json({ message: 'Missing spotifyUserId.' });
     }
 
     const client = await pool.connect();
     try {
-        // 1. リクエスト元の内部IDと選択アーティストを取得
-        const currentUserId = await getUserIdBySpotifyId(client, spotifyUserId);
+        const currentUserId = await getUserIdBySpotifyId(client, spotifyUserId); // string | null (uuid)
         if (!currentUserId) {
             return res.status(404).json({ message: 'Current user profile not found.' });
         }
-        
-        // 2. 全ユーザーの情報を取得
-        // 🔽 選択アーティストとプロフィールを両方取得 🔽
+
         const [allUserArtistsMap, allUserProfilesMap] = await Promise.all([
             getAllSelectedArtists(client),
             getAllUserProfiles(client)
         ]);
 
         const currentUserArtists = allUserArtistsMap.get(currentUserId)?.map(a => a.spotify_artist_id) || [];
-
-        // 🔽 型を MatchResult[] に変更 🔽
         const matches: MatchResult[] = [];
-        
-        // 3. 全ユーザーとマッチングスコアを計算
-        for (const [matchedUserId, matchedUserArtists] of allUserArtistsMap.entries()) {
-            if (matchedUserId === currentUserId) continue; // 自分自身はスキップ
-            
+
+        for (const [matchedUserId, matchedUserArtists] of allUserArtistsMap.entries()) { // matchedUserId is string (uuid)
+            if (matchedUserId === currentUserId) continue;
+
             const matchedArtistIds = matchedUserArtists.map(a => a.spotify_artist_id);
-            
             let score = 0;
-            const sharedArtists: string[] = []; // 共有アーティストIDを保持
-            
+            const sharedArtists: string[] = [];
+
             for (const artistId of currentUserArtists) {
                 if (matchedArtistIds.includes(artistId)) {
                     score++;
@@ -112,16 +92,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
 
             if (score > 0) {
-                // 🔽 相手のプロフィール情報を取得 🔽
                 const matchedProfile = allUserProfilesMap.get(matchedUserId) || null;
-                
-                // 🔽 共有アーティスト名も取得（任意） 🔽
-                // (今回はIDのみ sharedArtists に入れます)
-
                 matches.push({
-                    matched_user_id: matchedUserId,
+                    matched_user_id: matchedUserId, // string (uuid)
                     score: score,
-                    // 🔽 プロフィールと共有アーティスト情報を追加 🔽
                     profile: matchedProfile ? {
                         nickname: matchedProfile.nickname,
                         profile_image_url: matchedProfile.profile_image_url,
@@ -132,10 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         }
 
-        // 4. スコアで降順ソート
         matches.sort((a, b) => b.score - a.score);
-
-        // 5. マッチング結果を返す (ここではDB保存はせず、結果のみ返す)
         res.status(200).json({ matches });
 
     } catch (dbError) {
