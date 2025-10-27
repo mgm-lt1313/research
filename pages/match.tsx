@@ -146,17 +146,26 @@ export default function Match() {
       alert(`ユーザー: ${targetUserId} にフォローリクエストを送信しました。`);
       // (ここではUI変更のみ、実際のフォロー状態はAPIから取得推奨)
       
-    } catch (err: any) { // 👈 (エラー2修正) (err) を (err: any) に変更
-      // 🔽 (エラー2修正) err 変数を使用する
-      console.error('フォローリクエストに失敗しました:', err.response?.data?.message || err.message);
-      alert('フォローリクエストに失敗しました。');
-      // 🔽 (エラー2修正) エラー時はボタンを元に戻す
+    } catch (err: unknown) { // 👈 (err: any) から (err: unknown) に変更
+      let errorMessage = 'フォローリクエストに失敗しました。';
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+          errorMessage = `フォローリクエストに失敗しました: ${err.response.data.message}`;
+          console.error('フォローリクエストエラー:', err.response.data.message);
+      } else if (err instanceof Error) {
+          errorMessage = `フォローリクエストに失敗しました: ${err.message}`;
+          console.error('フォローリクエストエラー:', err.message);
+      } else {
+          console.error('フォローリクエストで不明なエラー:', err);
+      }
+      alert(errorMessage);
+      // エラー時はボタンを元に戻す
       setFollowingInProgress(prev => {
         const next = new Set(prev);
         next.delete(targetUserId);
         return next;
       });
     }
+// ...
     // (デモ用にすぐ解除)
     setTimeout(() => {
         setFollowingInProgress(prev => {
@@ -214,11 +223,17 @@ export default function Match() {
       
       setIsNewUser(false);
       setIsEditingProfile(false);
-    } catch (e: any) { // 👈 (e) を (e: any) に変更
+
+    } catch (e: unknown) { // 👈 (e: any) から (e: unknown) に変更
       if (axios.isAxiosError(e)) {
             setError(`プロフィールの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
+            console.error('プロフィール保存エラー(Axios):', e.response?.data || e.message);
+        } else if (e instanceof Error) {
+            setError(`予期せぬエラーが発生しました: ${e.message}`);
+            console.error('プロフィール保存エラー:', e.message);
         } else {
-            setError('予期せぬエラーが発生しました。');
+             setError('予期せぬ不明なエラーが発生しました。');
+             console.error('プロフィール保存で不明なエラー:', e);
         }
     } finally {
       setLoading(false);
@@ -254,12 +269,17 @@ export default function Match() {
         });
         setMatches(matchRes.data.matches);
 
-
-    } catch (e: any) { // 👈 (e) を (e: any) に変更
-        if (axios.isAxiosError(e)) {
-            setError(`アーティストの保存・計算中にエラーが発生しました: ${e.response?.data.message || e.response?.status || '不明'}`);
+    } catch (e: unknown) { // 👈 (e: any) から (e: unknown) に変更
+       if (axios.isAxiosError(e)) {
+            const apiMessage = e.response?.data?.message || e.response?.status || '不明';
+            setError(`アーティストの保存・計算中にエラーが発生しました: ${apiMessage}`);
+            console.error('アーティスト保存エラー(Axios):', e.response?.data || e.message);
+        } else if (e instanceof Error) {
+             setError(`予期せぬエラーが発生しました: ${e.message}`);
+             console.error('アーティスト保存エラー:', e.message);
         } else {
-            setError('予期せぬエラーが発生しました。');
+            setError('予期せぬ不明なエラーが発生しました。');
+            console.error('アーティスト保存で不明なエラー:', e);
         }
     } finally {
       setLoading(false);
