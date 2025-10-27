@@ -35,15 +35,15 @@ export default function Match() {
   const [profileImageUrl, setProfileImageUrl] = useState<string>('');
   const [bio, setBio] = useState<string>('');
 
-  // 🔽 新しいステート 🔽
+  // 🔽 アーティスト関連のステート 🔽
   const [selectedArtists, setSelectedArtists] = useState<SelectedArtist[]>([]); // 選択中のアーティスト
+  const [calculatedArtists, setCalculatedArtists] = useState<SelectedArtist[]>([]); // 算出されたアーティスト
+  
   const [activeTab, setActiveTab] = useState<MatchTab>('profile'); // 現在表示中のタブ
-
   const [isNewUser, setIsNewUser] = useState<boolean>(true); // 新規ユーザーかどうか
   const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false); // プロフィール編集モードかどうか
   const [isEditingArtists, setIsEditingArtists] = useState<boolean>(false); // アーティスト編集モードかどうか
 
-  // 🔽 新しい State の追加 🔽
 interface MatchResult {
     matched_user_id: number;
     score: number;
@@ -78,12 +78,21 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
         
         const existingProfile = existingProfileRes.data.profile;
 
+        // 🔽 既存のアーティスト情報を取得 🔽
+        const artistsRes = await axios.get(
+            `/api/artists/get?spotifyUserId=${profileData.id}`
+        );
+        setSelectedArtists(artistsRes.data.selectedArtists || []);
+        setCalculatedArtists(artistsRes.data.calculatedArtists || []);
+
+
         if (existingProfile) {
             setNickname(existingProfile.nickname);
             setProfileImageUrl(existingProfile.profile_image_url || '');
             setBio(existingProfile.bio || '');
             setIsNewUser(false); 
-            // 🔽 【新規】マッチング計算APIを呼び出す 🔽
+            
+            // 🔽 マッチング計算APIを呼び出す 🔽
             const matchRes = await axios.post('/api/match/calculate', {
                 spotifyUserId: profileData.id,
             });
@@ -93,17 +102,19 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
             setNickname(profileData.display_name || '');
             setProfileImageUrl(profileData.images?.[0]?.url || '');
             setIsNewUser(true); 
-            // 🔽 新規ユーザーはプロフィール登録から開始 🔽
             setIsEditingProfile(true);
         }
 
-        // 2. 既存の選択アーティストを取得（省略 - 今回は選択画面から更新）
-        // TODO: ここで selected_artists のデータを取得するAPIを呼び出す
-
       } catch (e) {
         if (axios.isAxiosError(e)) {
-          console.error('API Error:', e.response?.status, e.response?.data);
-          setError(`APIエラーが発生しました: ${e.response?.status || '不明'}`);
+          // 404 (User not found) は fetch の一部として許容する (新規ユーザー)
+          if (e.response?.status !== 404) {
+            console.error('API Error:', e.response?.status, e.response?.data);
+            setError(`APIエラーが発生しました: ${e.response?.status || '不明'}`);
+          } else {
+             // プロフィールが見つからないのは新規ユーザーなのでエラーではない
+             // (アーティスト取得の404はここで処理)
+          }
         } else {
           console.error('予期せぬエラー:', e);
           setError('予期せぬエラーが発生しました。');
@@ -118,6 +129,12 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
 
   // 選択アーティストの追加/削除ハンドラ
   const toggleArtistSelection = (artist: SpotifyArtist) => {
+    // 🔽 編集モードでない場合は何もしない 🔽
+    if (!isEditingArtists) {
+        alert('「アーティスト選択」ボタンを押して編集モードを開始してください。');
+        return;
+    }
+
     const isSelected = selectedArtists.some(sa => sa.id === artist.id);
     const artistData: SelectedArtist = {
         id: artist.id,
@@ -160,16 +177,19 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
       setIsNewUser(false);
       setIsEditingProfile(false);
     } catch (e) {
-      void e;
-      // ... エラー処理 ...
+      if (axios.isAxiosError(e)) {
+            setError(`プロフィールの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
+        } else {
+            setError('予期せぬエラーが発生しました。');
+        }
     } finally {
       setLoading(false);
     }
   };
 
-  // アーティスト選択保存ハンドラ (新規)
+  // 🔽 アーティスト選択保存ハンドラ (更新) 🔽
   const handleArtistSave = async () => {
-    if (!profile) return setError('Spotifyプロフィールが読み込まれていません。');
+    if (!profile || !access_token) return setError('Spotifyプロフィールが読み込まれていません。');
     if (selectedArtists.length === 0) {
         alert('アーティストを1人以上選択してください。');
         return;
@@ -179,21 +199,27 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
     setError(null);
 
     try {
-        await axios.post('/api/artists/save', {
+        // 🔽 API呼び出しを更新 🔽
+        const res = await axios.post('/api/artists/save', {
             spotifyUserId: profile.id,
-            selectedArtists: selectedArtists.map(a => ({ id: a.id, name: a.name })), // IDと名前だけ送信
+            selectedArtists: selectedArtists, // 🌍 id, name, image すべて送信
+            accessToken: access_token,      // 🌍 accessToken を送信
         });
 
-        alert('マッチング用アーティストを保存しました！');
+        // 🔽 レスポンスから算出結果を受け取りステートを更新 🔽
+        setCalculatedArtists(res.data.calculatedArtists || []);
+        
+        alert('アーティストを保存し、関連アーティストを計算しました！');
         setIsEditingArtists(false);
+
     } catch (e) {
         if (axios.isAxiosError(e)) {
-            setError(`アーティストの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
+            setError(`アーティストの保存・計算中にエラーが発生しました: ${e.response?.data.message || e.response?.status || '不明'}`);
         } else {
             setError('予期せぬエラーが発生しました。');
         }
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -207,15 +233,15 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
   }
   
   // ----------------------------------------------------
-  // 🔽 UI: プロフィール編集フォーム 🔽
+  // 🔽 UI: プロフィール編集フォーム (変更なし) 🔽
   // ----------------------------------------------------
   const ProfileEditor = () => (
     <div className="p-4 max-w-xl mx-auto bg-gray-800 rounded-lg shadow-md mt-4">
+        {/* ... (内容は変更なし) ... */}
         <h2 className="text-xl font-bold text-white mb-4">
             {isNewUser ? 'プロフィール登録' : 'プロフィール編集'}
         </h2>
         <form onSubmit={handleProfileSubmit} className="space-y-4">
-            {/* ... フォーム要素 (nickname, profileImageUrl, bio) はそのまま ... */}
             <div>
                 <label htmlFor="nickname" className="block text-white text-sm font-bold mb-2">ニックネーム <span className="text-red-500">*</span></label>
                 <input type="text" id="nickname" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value={nickname} onChange={(e) => setNickname(e.target.value)} required />
@@ -223,7 +249,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
             <div>
                 <label htmlFor="profileImageUrl" className="block text-white text-sm font-bold mb-2">プロフィール画像URL (任意)</label>
                 <input type="url" id="profileImageUrl" className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value={profileImageUrl} onChange={(e) => setProfileImageUrl(e.target.value)} placeholder="例: http://example.com/your-image.jpg" />
-                {profileImageUrl && <Image src={profileImageUrl} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-full" />}
+                {profileImageUrl && <Image src={profileImageUrl} alt="Preview" width={96} height={96} className="mt-2 w-24 h-24 object-cover rounded-full" />}
             </div>
             <div>
                 <label htmlFor="bio" className="block text-white text-sm font-bold mb-2">自己紹介文 (任意)</label>
@@ -233,7 +259,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
                 <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" disabled={loading}>
                     {loading ? '保存中...' : (isNewUser ? 'プロフィールを登録' : '更新を保存')}
                 </button>
-                {isEditingProfile && (
+                {isEditingProfile && !isNewUser && (
                     <button type="button" onClick={() => setIsEditingProfile(false)} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" disabled={loading}>
                         キャンセル
                     </button>
@@ -244,7 +270,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
   );
 
   // ----------------------------------------------------
-  // 🔽 UI: アーティスト選択フォーム 🔽
+  // 🔽 UI: アーティスト選択フォーム (変更なし) 🔽
   // ----------------------------------------------------
   const ArtistSelection = () => (
     <div className="p-4 max-w-2xl mx-auto bg-gray-800 rounded-lg shadow-md mt-4">
@@ -266,41 +292,39 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
             className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mb-4"
             disabled={loading || selectedArtists.length === 0}
         >
-            {loading ? '保存中...' : '選択したアーティストを保存'}
+            {loading ? '保存・計算中...' : '選択したアーティストを保存・計算'}
         </button>
 
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {artists.map((artist) => (
-            <li
-              key={artist.id}
-              className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer"
-              onClick={() => toggleArtistSelection(artist)}
-            >
-              {artist.images?.[0]?.url && (
-                <Image
-                  src={artist.images[0].url}
-                  alt={artist.name}
-                  width={32}  // 👈 w-8 h-8 (32px) に合わせた数値
-                  height={32} // 👈 w-8 h-8 (32px) に合わせた数値
-                  className="w-8 h-8 rounded-full object-cover" // 👈 w-8 h-8 クラスも追加
-                />
-              )}
-              <a
-                href={artist.external_urls.spotify}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-300 hover:underline font-medium"
-              >
-                {artist.name}
-              </a>
-            </li>
-          ))}
+          {artists.map((artist) => {
+            const isSelected = selectedArtists.some(sa => sa.id === artist.id);
+            return (
+                <li
+                key={artist.id}
+                className={`bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer ${isSelected ? 'ring-2 ring-green-500' : 'hover:bg-gray-600'}`}
+                onClick={() => toggleArtistSelection(artist)}
+                >
+                {artist.images?.[0]?.url && (
+                    <Image
+                    src={artist.images[0].url}
+                    alt={artist.name}
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-full object-cover"
+                    />
+                )}
+                <span className="text-white font-medium">
+                    {artist.name}
+                </span>
+                </li>
+            );
+          })}
         </ul>
     </div>
   );
 
   // ----------------------------------------------------
-  // 🔽 メインレンダリング 🔽
+  // 🔽 メインレンダリング (UI更新あり) 🔽
   // ----------------------------------------------------
 
   // プロフィール未登録の場合、登録フォームのみを表示
@@ -364,7 +388,6 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
       {profile && (
         <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6 relative">
           
-          {/* 🔽 編集ボタンのグループ化 🔽 */}
           <div className="absolute top-4 right-4 flex space-x-2">
             <button
                 onClick={() => { setIsEditingProfile(true); setActiveTab('profile'); }}
@@ -382,11 +405,12 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
           
           <div className="flex items-center space-x-4 mb-4">
             {(profileImageUrl || profile.images?.[0]?.url) && (
-              // eslint-disable-next-line @next/next/no-img-element
               <Image
                 src={profileImageUrl || profile.images?.[0]?.url || ''}
                 alt={nickname || profile.display_name || 'プロフィール画像'}
-                className="w-10 h-10 rounded-full object-cover" // Tailwindクラスを使用
+                width={40}
+                height={40}
+                className="w-10 h-10 rounded-full object-cover"
               />
             )}
             <div>
@@ -403,13 +427,14 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
           </div>
         </div>
       )}
-       {/* 🔽 【新規】マッチング結果の表示 🔽 */}
+
+      {/* 🔽 【新規】マッチング結果の表示 🔽 */}
       {matches.length > 0 && (
         <>
           <h2 className="text-xl font-bold mt-8 text-white mb-4 border-b border-gray-700 pb-2">🔥 おすすめのマッチング</h2>
           <ul className="space-y-4 mb-8">
             {matches.map((match) => (
-              <li key={match.matched_user_id} className="bg-green-800 p-4 rounded-lg shadow-md flex justify-between items-center">
+              <li key={match.matched_user_id} className="bg-gray-700 p-4 rounded-lg shadow-md flex justify-between items-center">
                 <span className="text-white font-semibold">
                   ユーザー ID: {match.matched_user_id}
                 </span>
@@ -421,35 +446,88 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
           </ul>
         </>
       )}
+
+      {/* 🔽🔽🔽 --- ここから追加 (あなたの音楽的趣味) --- 🔽🔽🔽 */}
+      <h2 className="text-xl font-bold mt-8 text-white mb-4 border-b border-gray-700 pb-2">
+        あなたの音楽的趣味
+      </h2>
       
-      <h2 className="text-xl font-bold mt-4 text-white mb-4">フォロー中のアーティスト</h2>
+      <h3 className="text-lg font-semibold text-white mb-3">🎧 選択したアーティスト</h3>
+      {selectedArtists.length > 0 ? (
+        <div className="flex flex-wrap gap-4 mb-4">
+          {selectedArtists.map(artist => (
+            <div key={artist.id} className="bg-gray-700 p-3 rounded-lg flex items-center space-x-3 shadow-md">
+              {artist.image && (
+                <Image 
+                    src={artist.image} 
+                    alt={artist.name} 
+                    width={32} height={32} 
+                    className="w-8 h-8 rounded-full object-cover" />
+              )}
+              <span className="text-white font-medium">{artist.name}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-400 mb-4">（アーティストが選択されていません。「アーティスト選択」から設定してください）</p>
+      )}
+
+      <h3 className="text-lg font-semibold text-white mb-3">📈 算出された関連アーティスト</h3>
+      {calculatedArtists.length > 0 ? (
+        <div className="flex flex-wrap gap-4 mb-8">
+          {calculatedArtists.map(artist => (
+            <div key={artist.id} className="bg-gray-600 p-3 rounded-lg flex items-center space-x-3 shadow-sm">
+              {artist.image && (
+                <Image 
+                    src={artist.image} 
+                    alt={artist.name} 
+                    width={32} height={32} 
+                    className="w-8 h-8 rounded-full object-cover" />
+              )}
+              <span className="text-white font-medium">{artist.name}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-400 mb-8">
+          {selectedArtists.length > 0 ? '（関連アーティストがまだ計算されていません）' : '（アーティストを選択すると、関連アーティストが計算されます）'}
+        </p>
+      )}
+      {/* 🔼🔼🔼 --- ここまで追加 --- 🔼🔼🔼 */}
+
+      
+      <h2 className="text-xl font-bold mt-4 text-white mb-4">フォロー中の全アーティスト</h2>
       {artists.length > 0 ? (
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {artists.map((artist) => (
-            <li
-              key={artist.id}
-              className="bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 cursor-pointer"
-              onClick={() => toggleArtistSelection(artist)}
-            >
-              {artist.images?.[0]?.url && (
-                <Image
-                  src={artist.images[0].url}
-                  alt={artist.name}
-                  width={32}  // 👈 w-8 h-8 (32px) に合わせた数値
-                  height={32} // 👈 w-8 h-8 (32px) に合わせた数値
-                  className="w-8 h-8 rounded-full object-cover" // 👈 w-8 h-8 クラスも追加
-                />
-              )}
-              <a
-                href={artist.external_urls.spotify}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-300 hover:underline font-medium"
-              >
-                {artist.name}
-              </a>
-            </li>
-          ))}
+          {artists.map((artist) => {
+            const isSelected = selectedArtists.some(sa => sa.id === artist.id);
+            return (
+                <li
+                key={artist.id}
+                className={`bg-gray-700 p-4 rounded-lg shadow-sm flex items-center space-x-3 ${isEditingArtists ? 'cursor-pointer hover:bg-gray-600' : 'opacity-70'} ${isSelected ? 'ring-2 ring-green-500' : ''}`}
+                onClick={() => isEditingArtists && toggleArtistSelection(artist)}
+                >
+                {artist.images?.[0]?.url && (
+                    <Image
+                    src={artist.images[0].url}
+                    alt={artist.name}
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-full object-cover"
+                    />
+                )}
+                <a
+                    href={artist.external_urls.spotify}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-300 hover:underline font-medium"
+                    onClick={(e) => isEditingArtists && e.preventDefault()} // 編集中はリンク無効
+                >
+                    {artist.name}
+                </a>
+                </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="text-gray-400">フォローしているアーティストがいません。</p>

@@ -74,3 +74,31 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
 
   return artists;
 }
+
+/**
+ * 指定したアーティストの関連アーティストを取得
+ * @param accessToken Spotify APIのアクセストークン
+ * @param artistId アーティストID
+ */
+interface RelatedArtistsResponse {
+  artists: SpotifyArtist[];
+}
+
+export const getArtistRelatedArtists = async (
+  accessToken: string,
+  artistId: string
+): Promise<SpotifyArtist[]> => {
+  try {
+    const { data } = await axios.get<RelatedArtistsResponse>(
+      `${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    // 関連アーティストは最大10人まで取得（多すぎると計算が重くなるため）
+    return data.artists.slice(0, 10);
+  } catch (error) {
+    console.error(`Failed to get related artists for ${artistId}:`, error);
+    return []; // エラー時は空配列を返す
+  }
+};
