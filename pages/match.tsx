@@ -114,15 +114,22 @@ export default function Match() {
             setIsEditingProfile(true);
         }
 
-      } catch (e: any) { // 👈 (e) を (e: any) に変更
+
+      } catch (e: unknown) { // 👈 Ensure this line uses ': unknown'
         if (axios.isAxiosError(e)) {
-          if (e.response?.status !== 404) {
+          // Check if it's an Axios error
+          if (e.response?.status !== 404) { // Allow 404s (user not found)
             console.error('API Error:', e.response?.status, e.response?.data);
             setError(`APIエラーが発生しました: ${e.response?.status || '不明'}`);
           }
-        } else {
+        } else if (e instanceof Error) {
+          // Check if it's a standard JavaScript Error
           console.error('予期せぬエラー:', e);
-          setError('予期せぬエラーが発生しました。');
+          setError(`予期せぬエラーが発生しました: ${e.message}`);
+        } else {
+          // Handle other potential error types (e.g., strings thrown)
+          console.error('予期せぬ不明なエラー:', e);
+          setError('予期せぬ不明なエラーが発生しました。');
         }
       } finally {
         setLoading(false);
@@ -131,6 +138,8 @@ export default function Match() {
 
     fetchData();
   }, [access_token, router.query]);
+
+// ... (rest of the component)
 
   // 🔽 (前回提案) フォローリクエストのハンドラ (IDを string に修正)
   const handleFollow = async (targetUserId: string) => {
