@@ -113,10 +113,10 @@ export const getArtistRelatedArtists = async (
     return data.artists.slice(0, 10);
   } catch (error) {
     console.error(`Failed to get related artists for ${artistId}:`, error);
-    // 404以外のエラー（401認証エラーなど）もここでキャッチされます
-    // ▼▼▼ エラーログ強化 ▼▼▼
-    console.error(`Failed to get related artists for ${artistId}:`, error.response?.status, error.message);
-    // ▲▲▲ エラーログ強化 ▲▲▲
+    // // 404以外のエラー（401認証エラーなど）もここでキャッチされます
+    // // ▼▼▼ エラーログ強化 ▼▼▼
+    // console.error(`Failed to get related artists for ${artistId}:`, error.response?.status, error.message);
+    // // ▲▲▲ エラーログ強化 ▲▲▲
     return []; // エラー時は空配列を返す
   }
 };
