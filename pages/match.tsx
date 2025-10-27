@@ -1,8 +1,10 @@
+// pages/match.tsx
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { SpotifyProfile, SpotifyArtist, getMyProfile, getMyFollowingArtists } from '../lib/spotify';
 import Image from 'next/image';
+import Link from 'next/link'; // 👈 Link の import を追加 (前回提案分)
 
 // DBから取得するプロフィール情報のための型定義
 interface UserProfile {
@@ -21,10 +23,20 @@ interface SelectedArtist {
 // UIのタブ状態
 type MatchTab = 'profile' | 'artists';
 
+// 🔽 (前回提案) マッチング結果の型 (IDを string に修正)
+interface MatchResult {
+    matched_user_id: string; // 👈 number から string (uuid) に変更
+    score: number;
+    profile: UserProfile | null;
+    sharedArtists: string[];
+}
+
+
 export default function Match() {
   const router = useRouter();
   const { access_token } = router.query as { access_token?: string };
 
+  // --- 🔽 (エラー1修正) React Hooks はすべてここに集約 ---
   const [profile, setProfile] = useState<SpotifyProfile | null>(null);
   const [artists, setArtists] = useState<SpotifyArtist[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -35,22 +47,20 @@ export default function Match() {
   const [profileImageUrl, setProfileImageUrl] = useState<string>('');
   const [bio, setBio] = useState<string>('');
 
-  // 🔽 アーティスト関連のステート 🔽
-  const [selectedArtists, setSelectedArtists] = useState<SelectedArtist[]>([]); // 選択中のアーティスト
-  const [calculatedArtists, setCalculatedArtists] = useState<SelectedArtist[]>([]); // 算出されたアーティスト
+  // アーティスト関連のステート
+  const [selectedArtists, setSelectedArtists] = useState<SelectedArtist[]>([]); 
+  const [calculatedArtists, setCalculatedArtists] = useState<SelectedArtist[]>([]); 
   
-  const [activeTab, setActiveTab] = useState<MatchTab>('profile'); // 現在表示中のタブ
-  const [isNewUser, setIsNewUser] = useState<boolean>(true); // 新規ユーザーかどうか
-  const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false); // プロフィール編集モードかどうか
-  const [isEditingArtists, setIsEditingArtists] = useState<boolean>(false); // アーティスト編集モードかどうか
+  const [activeTab, setActiveTab] = useState<MatchTab>('profile'); 
+  const [isNewUser, setIsNewUser] = useState<boolean>(true); 
+  const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false); 
+  const [isEditingArtists, setIsEditingArtists] = useState<boolean>(false); 
 
-interface MatchResult {
-    matched_user_id: number;
-    score: number;
-    profile: UserProfile | null; // 👈 APIの返り値に合わせる
-    sharedArtists: string[];
-}
-const [matches, setMatches] = useState<MatchResult[]>([]);
+  // マッチング結果のステート (IDを string に修正)
+  const [matches, setMatches] = useState<MatchResult[]>([]);
+  // フォローリクエスト用のステート (IDを string に修正)
+  const [followingInProgress, setFollowingInProgress] = useState<Set<string>>(new Set());
+  // --- 🔼 (エラー1修正) React Hooks はここまで ---
 
 
   useEffect(() => {
@@ -61,7 +71,6 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
       }
       return;
     }
-  
 
     const fetchData = async () => {
       setLoading(true);
@@ -73,14 +82,12 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
         const artistsData = await getMyFollowingArtists(access_token);
         setArtists(artistsData);
 
-        // 1. 既存プロフィールを確認
         const existingProfileRes = await axios.get<{ profile: UserProfile | null }>(
           `/api/profile/get?spotifyUserId=${profileData.id}`
         );
         
         const existingProfile = existingProfileRes.data.profile;
 
-        // 🔽 既存のアーティスト情報を取得 🔽
         const artistsRes = await axios.get(
             `/api/artists/get?spotifyUserId=${profileData.id}`
         );
@@ -94,7 +101,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
             setBio(existingProfile.bio || '');
             setIsNewUser(false); 
             
-            // 🔽 マッチング計算APIを呼び出す 🔽
+            // 🔽 修正後の calculate API を呼び出す 🔽
             const matchRes = await axios.post('/api/match/calculate', {
                 spotifyUserId: profileData.id,
             });
@@ -107,15 +114,11 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
             setIsEditingProfile(true);
         }
 
-      } catch (e) {
+      } catch (e: any) { // 👈 (e) を (e: any) に変更
         if (axios.isAxiosError(e)) {
-          // 404 (User not found) は fetch の一部として許容する (新規ユーザー)
           if (e.response?.status !== 404) {
             console.error('API Error:', e.response?.status, e.response?.data);
             setError(`APIエラーが発生しました: ${e.response?.status || '不明'}`);
-          } else {
-             // プロフィールが見つからないのは新規ユーザーなのでエラーではない
-             // (アーティスト取得の404はここで処理)
           }
         } else {
           console.error('予期せぬエラー:', e);
@@ -129,9 +132,44 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
     fetchData();
   }, [access_token, router.query]);
 
+  // 🔽 (前回提案) フォローリクエストのハンドラ (IDを string に修正)
+  const handleFollow = async (targetUserId: string) => {
+    setFollowingInProgress(prev => new Set(prev).add(targetUserId));
+    try {
+      if (!profile) throw new Error('Profile not loaded');
+      
+      await axios.post('/api/follow/request', { 
+        targetUserId: targetUserId,
+        selfSpotifyId: profile.id // 自分のID (string) を渡す
+      });
+      
+      alert(`ユーザー: ${targetUserId} にフォローリクエストを送信しました。`);
+      // (ここではUI変更のみ、実際のフォロー状態はAPIから取得推奨)
+      
+    } catch (err: any) { // 👈 (エラー2修正) (err) を (err: any) に変更
+      // 🔽 (エラー2修正) err 変数を使用する
+      console.error('フォローリクエストに失敗しました:', err.response?.data?.message || err.message);
+      alert('フォローリクエストに失敗しました。');
+      // 🔽 (エラー2修正) エラー時はボタンを元に戻す
+      setFollowingInProgress(prev => {
+        const next = new Set(prev);
+        next.delete(targetUserId);
+        return next;
+      });
+    }
+    // (デモ用にすぐ解除)
+    setTimeout(() => {
+        setFollowingInProgress(prev => {
+            const next = new Set(prev);
+            next.delete(targetUserId);
+            return next;
+          });
+    }, 1000);
+  };
+
+
   // 選択アーティストの追加/削除ハンドラ
   const toggleArtistSelection = (artist: SpotifyArtist) => {
-    // 🔽 編集モードでない場合は何もしない 🔽
     if (!isEditingArtists) {
         alert('「アーティスト選択」ボタンを押して編集モードを開始してください。');
         return;
@@ -145,10 +183,8 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
     };
 
     if (isSelected) {
-        // 削除
         setSelectedArtists(selectedArtists.filter(sa => sa.id !== artist.id));
     } else {
-        // 追加 (3人制限)
         if (selectedArtists.length < 3) {
             setSelectedArtists([...selectedArtists, artistData]);
         } else {
@@ -157,7 +193,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
     }
   };
 
-  // プロフィール登録/更新フォーム送信ハンドラ (既存)
+  // プロフィール登録/更新フォーム送信ハンドラ
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return setError('Spotifyプロフィールが読み込まれていません。');
@@ -178,7 +214,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
       
       setIsNewUser(false);
       setIsEditingProfile(false);
-    } catch (e) {
+    } catch (e: any) { // 👈 (e) を (e: any) に変更
       if (axios.isAxiosError(e)) {
             setError(`プロフィールの保存中にエラーが発生しました: ${e.response?.status || '不明'}`);
         } else {
@@ -189,7 +225,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
     }
   };
 
-  // 🔽 アーティスト選択保存ハンドラ (更新) 🔽
+  // アーティスト選択保存ハンドラ
   const handleArtistSave = async () => {
     if (!profile || !access_token) return setError('Spotifyプロフィールが読み込まれていません。');
     if (selectedArtists.length === 0) {
@@ -201,20 +237,25 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
     setError(null);
 
     try {
-        // 🔽 API呼び出しを更新 🔽
         const res = await axios.post('/api/artists/save', {
             spotifyUserId: profile.id,
-            selectedArtists: selectedArtists, // 🌍 id, name, image すべて送信
-            accessToken: access_token,      // 🌍 accessToken を送信
+            selectedArtists: selectedArtists,
+            accessToken: access_token,
         });
 
-        // 🔽 レスポンスから算出結果を受け取りステートを更新 🔽
         setCalculatedArtists(res.data.calculatedArtists || []);
         
         alert('アーティストを保存し、関連アーティストを計算しました！');
         setIsEditingArtists(false);
 
-    } catch (e) {
+        // 🔽 保存・計算後にマッチングを再計算
+        const matchRes = await axios.post('/api/match/calculate', {
+            spotifyUserId: profile.id,
+        });
+        setMatches(matchRes.data.matches);
+
+
+    } catch (e: any) { // 👈 (e) を (e: any) に変更
         if (axios.isAxiosError(e)) {
             setError(`アーティストの保存・計算中にエラーが発生しました: ${e.response?.data.message || e.response?.status || '不明'}`);
         } else {
@@ -226,6 +267,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
   };
 
 
+  // --- 🔽 (エラー1修正) ここからが早期リターン ---
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">データをロード中...</div>;
   }
@@ -233,30 +275,9 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
   if (error) {
     return <div className="flex justify-center items-center min-h-screen text-red-500">{error}</div>;
   }
-
-  // 🔽 48行目あたり: フォローリクエスト用のステートとハンドラを追加 🔽
-  const [followingInProgress, setFollowingInProgress] = useState<Set<number>>(new Set());
-
-  const handleFollow = async (targetUserId: number) => {
-    setFollowingInProgress(prev => new Set(prev).add(targetUserId));
-    try {
-      // ❗️(ステップ2で作成するAPI)
-      // await axios.post('/api/follow/request', { targetUserId });
-      
-      alert(`ユーザーID: ${targetUserId} にフォローリクエストを送信しました。\n(ステップ2でAPIを実装します)`);
-      // ここでUIを「リクエスト済み」などに変更
-      
-    } catch (err) {
-      alert('フォローリクエストに失敗しました。');
-      setFollowingInProgress(prev => {
-        const next = new Set(prev);
-        next.delete(targetUserId);
-        return next;
-      });
-    }
-  }
+  
   // ----------------------------------------------------
-  // 🔽 UI: プロフィール編集フォーム (変更なし) 🔽
+  // UI: プロフィール編集フォーム (変更なし)
   // ----------------------------------------------------
   const ProfileEditor = () => (
     <div className="p-4 max-w-xl mx-auto bg-gray-800 rounded-lg shadow-md mt-4">
@@ -293,7 +314,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
   );
 
   // ----------------------------------------------------
-  // 🔽 UI: アーティスト選択フォーム (変更なし) 🔽
+  // UI: アーティスト選択フォーム (変更なし)
   // ----------------------------------------------------
   const ArtistSelection = () => (
     <div className="p-4 max-w-2xl mx-auto bg-gray-800 rounded-lg shadow-md mt-4">
@@ -347,7 +368,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
   );
 
   // ----------------------------------------------------
-  // 🔽 メインレンダリング (UI更新あり) 🔽
+  // メインレンダリング (UI更新あり)
   // ----------------------------------------------------
 
   // プロフィール未登録の場合、登録フォームのみを表示
@@ -412,6 +433,13 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
         <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6 relative">
           
           <div className="absolute top-4 right-4 flex space-x-2">
+             {/* 🔽 (前回提案) チャット一覧へのリンク */}
+             <Link 
+              href={`/chats?spotifyUserId=${profile.id}`} 
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">
+              チャット一覧
+            </Link>
+
             <button
                 onClick={() => { setIsEditingProfile(true); setActiveTab('profile'); }}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm"
@@ -451,13 +479,12 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
         </div>
       )}
 
-      {/* 🔽 【修正】マッチング結果の表示 🔽 */}
+      {/* 🔽 (前回提案) マッチング結果の表示 (IDを string に修正) 🔽 */}
       {matches.length > 0 && (
         <>
           <h2 className="text-xl font-bold mt-8 text-white mb-4 border-b border-gray-700 pb-2">🔥 おすすめのマッチング</h2>
           <ul className="space-y-4 mb-8">
             {matches.map((match) => {
-              // 🔽 プロフィールが取得できなかった場合は表示しない (またはプレースホルダ) 🔽
               if (!match.profile) {
                 return (
                   <li key={match.matched_user_id} className="bg-gray-700 p-4 rounded-lg shadow-md">
@@ -495,7 +522,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
 
                   {/* 3. フォローボタン */}
                   <button
-                    onClick={() => handleFollow(match.matched_user_id)}
+                    onClick={() => handleFollow(match.matched_user_id)} // 👈 string (uuid) を渡す
                     disabled={isFollowing}
                     className={`flex-shrink-0 px-4 py-2 rounded font-semibold text-sm ${
                       isFollowing
@@ -513,7 +540,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
         </>
       )}
 
-      {/* 🔽🔽🔽 --- ここから追加 (あなたの音楽的趣味) --- 🔽🔽🔽 */}
+      {/* --- あなたの音楽的趣味 (変更なし) --- */}
       <h2 className="text-xl font-bold mt-8 text-white mb-4 border-b border-gray-700 pb-2">
         あなたの音楽的趣味
       </h2>
@@ -559,7 +586,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
           {selectedArtists.length > 0 ? '（関連アーティストがまだ計算されていません）' : '（アーティストを選択すると、関連アーティストが計算されます）'}
         </p>
       )}
-      {/* 🔼🔼🔼 --- ここまで追加 --- 🔼🔼🔼 */}
+      {/* --- あなたの音楽的趣味 (ここまで) --- */}
 
       
       <h2 className="text-xl font-bold mt-4 text-white mb-4">フォロー中の全アーティスト</h2>
@@ -600,4 +627,4 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
       )}
     </div>
   );
-};
+}
