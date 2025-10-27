@@ -47,7 +47,8 @@ export default function Match() {
 interface MatchResult {
     matched_user_id: number;
     score: number;
-    // ... 将来的にニックネームなどの情報も追加
+    profile: UserProfile | null; // 👈 APIの返り値に合わせる
+    sharedArtists: string[];
 }
 const [matches, setMatches] = useState<MatchResult[]>([]);
 
@@ -60,6 +61,7 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
       }
       return;
     }
+  
 
     const fetchData = async () => {
       setLoading(true);
@@ -231,6 +233,27 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
   if (error) {
     return <div className="flex justify-center items-center min-h-screen text-red-500">{error}</div>;
   }
+
+  // 🔽 48行目あたり: フォローリクエスト用のステートとハンドラを追加 🔽
+  const [followingInProgress, setFollowingInProgress] = useState<Set<number>>(new Set());
+
+  const handleFollow = async (targetUserId: number) => {
+    setFollowingInProgress(prev => new Set(prev).add(targetUserId));
+    try {
+      // ❗️(ステップ2で作成するAPI)
+      // await axios.post('/api/follow/request', { targetUserId });
+      
+      alert(`ユーザーID: ${targetUserId} にフォローリクエストを送信しました。\n(ステップ2でAPIを実装します)`);
+      // ここでUIを「リクエスト済み」などに変更
+      
+    } catch (err) {
+      alert('フォローリクエストに失敗しました。');
+      setFollowingInProgress(prev => {
+        const next = new Set(prev);
+        next.delete(targetUserId);
+        return next;
+      });
+    }
   
   // ----------------------------------------------------
   // 🔽 UI: プロフィール編集フォーム (変更なし) 🔽
@@ -428,21 +451,64 @@ const [matches, setMatches] = useState<MatchResult[]>([]);
         </div>
       )}
 
-      {/* 🔽 【新規】マッチング結果の表示 🔽 */}
+      {/* 🔽 【修正】マッチング結果の表示 🔽 */}
       {matches.length > 0 && (
         <>
           <h2 className="text-xl font-bold mt-8 text-white mb-4 border-b border-gray-700 pb-2">🔥 おすすめのマッチング</h2>
           <ul className="space-y-4 mb-8">
-            {matches.map((match) => (
-              <li key={match.matched_user_id} className="bg-gray-700 p-4 rounded-lg shadow-md flex justify-between items-center">
-                <span className="text-white font-semibold">
-                  ユーザー ID: {match.matched_user_id}
-                </span>
-                <span className="bg-yellow-400 text-gray-900 text-sm font-bold px-3 py-1 rounded-full">
-                  一致アーティスト数: {match.score}
-                </span>
+            {matches.map((match) => {
+              // 🔽 プロフィールが取得できなかった場合は表示しない (またはプレースホルダ) 🔽
+              if (!match.profile) {
+                return (
+                  <li key={match.matched_user_id} className="bg-gray-700 p-4 rounded-lg shadow-md">
+                     <span className="text-gray-400">プロフィールの取得に失敗したユーザー (ID: {match.matched_user_id})</span>
+                  </li>
+                );
+              }
+              
+              const isFollowing = followingInProgress.has(match.matched_user_id);
+
+              return (
+              <li key={match.matched_user_id} className="bg-gray-700 p-4 rounded-lg shadow-md">
+                <div className="flex items-start space-x-4">
+                  {/* 1. プロフィール画像 */}
+                  {match.profile.profile_image_url ? (
+                    <Image
+                      src={match.profile.profile_image_url}
+                      alt={match.profile.nickname}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gray-600 flex-shrink-0"></div>
+                  )}
+
+                  {/* 2. ユーザー情報 */}
+                  <div className="flex-grow">
+                    <h3 className="text-lg font-bold text-white">{match.profile.nickname}</h3>
+                    <p className="text-sm text-gray-300 mt-1 mb-2 line-clamp-2">{match.profile.bio || '(自己紹介文がありません)'}</p>
+                    <div className="text-xs text-green-400">
+                      💚 共通のアーティストが {match.score}人 います
+                    </div>
+                  </div>
+
+                  {/* 3. フォローボタン */}
+                  <button
+                    onClick={() => handleFollow(match.matched_user_id)}
+                    disabled={isFollowing}
+                    className={`flex-shrink-0 px-4 py-2 rounded font-semibold text-sm ${
+                      isFollowing
+                        ? 'bg-gray-500 text-white cursor-wait'
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
+                  >
+                    {isFollowing ? '送信中...' : 'フォロー'}
+                  </button>
+                </div>
               </li>
-            ))}
+            );
+          })}
           </ul>
         </>
       )}
