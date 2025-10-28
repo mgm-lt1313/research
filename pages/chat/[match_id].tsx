@@ -142,17 +142,19 @@ export default function ChatRoom() {
                 content: contentToSend,
             });
             
-            // --- 🔽 axios.postの結果を postResponse に代入 ---
-            // await axios.post(`/api/chat/${match_id}`, { // 元のコード
-            const postResponse = await axios.post(`/api/chat/${match_id}`, { // 👈 修正後
+            // チャットAPI (POST) を呼び出す (これは成功しているはず)
+            const postResponse = await axios.post(`/api/chat/${match_id}`, {
                 senderSpotifyId: selfSpotifyId,
                 content: contentToSend,
             });
-            // --- 🔼 修正ここまで ---
 
-            // --- 🔽 成功時のログを追加 ---
             console.log("Message sent successfully:", postResponse.data);
-            // --- 🔼 成功時のログを追加 ---
+
+            // --- 🔽 メッセージリスト再取得時の GET リクエストを修正 ---
+            // 成功したらメッセージリストを再取得 (ポーリングがない場合)
+            // const getResponse = await axios.get(`/api/chat/${match_id}`); // 元のコード (selfSpotifyId がない！)
+            const getResponse = await axios.get(`/api/chat/${match_id}?selfSpotifyId=${selfSpotifyId}`); // 👈 修正後
+            // --- 🔼 修正ここまで ---
 
             // 成功したらメッセージリストを再取得 (ポーリングがない場合)
             const res = await axios.get(`/api/chat/${match_id}`);
@@ -160,7 +162,7 @@ export default function ChatRoom() {
         } catch (err: unknown) {
             // --- 🔽 エラー時の詳細ログを追加 ---
             console.error("Failed to send message:", err);
-            let detailedErrorMessage = 'メッセージの送信に失敗しました。';
+            let detailedErrorMessage = 'メッセージの送信または再取得に失敗しました。'; // エラーメッセージを少し変更
             if (axios.isAxiosError(err)) {
                 console.error("Axios error details:", {
                     status: err.response?.status,
@@ -173,9 +175,9 @@ export default function ChatRoom() {
             }
             setError(detailedErrorMessage); // 詳細なエラーメッセージを表示
             // --- 🔼 エラー時の詳細ログを追加 ---
-            console.error("Failed to send message:", err);
-            setError('メッセージの送信に失敗しました。');
-            setNewMessage(contentToSend); // 送信失敗したら入力欄に戻す
+            console.error("Failed to send message OR fetch after sending:", err); // ログメッセージを少し変更
+            setError(detailedErrorMessage);
+            setNewMessage(contentToSend);
         } finally {
             setSending(false);
         }
