@@ -28,6 +28,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 自分のSpotify ID (GET時はクエリ, POST時はボディから取得 - 実際の認証方法に合わせる)
     const selfSpotifyId = (req.method === 'GET' ? req.query.selfSpotifyId : req.body.senderSpotifyId) as string | undefined;
 
+    // --- 🔽 ログを追加 (リクエスト受信直後) ---
+    console.log(`[API /api/chat/${matchIdStr}] Received ${req.method} request.`);
+    console.log(`  Query params:`, req.query);
+    console.log(`  Body params:`, req.body);
+    console.log(`  Resolved selfSpotifyId:`, selfSpotifyId);
+    // --- 🔼 ログを追加 ---
+
     // --- IDのバリデーション ---
     if (!matchIdStr) {
         return res.status(400).json({ message: 'Missing match_id in URL path.' });
@@ -45,12 +52,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         // 自分の内部ID (uuid) を取得
         const selfId = await getUserIdBySpotifyId(client, selfSpotifyId);
+        // --- 🔽 ログを追加 (ユーザーID取得後) ---
+        console.log(`  Internal selfId (uuid):`, selfId);
+        // --- 🔼 ログを追加 ---
         if (!selfId) {
             return res.status(401).json({ message: 'User not found or invalid credentials.' });
         }
 
         // このユーザーが指定された matchId のチャットにアクセス権があるか確認
         const isParticipant = await verifyUserMatchAccess(client, selfId, matchId);
+        // --- 🔽 ログを追加 (アクセス権確認後) ---
+        console.log(`  Is participant authorized:`, isParticipant);
+        // --- 🔼 ログを追加 ---
         if (!isParticipant) {
             return res.status(403).json({ message: 'You do not have access to this chat room.' });
         }
@@ -69,9 +82,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         } else if (req.method === 'POST') {
             const { content } = req.body;
+            // --- 🔽 ログを追加 (POST処理開始時) ---
+             console.log(`  POST content:`, content);
+             // --- 🔼 ログを追加 ---
             if (!content || typeof content !== 'string' || content.trim().length === 0) {
                 return res.status(400).json({ message: 'Message content cannot be empty.' });
             }
+            // --- 🔽 ログを追加 (DB挿入前) ---
+            console.log(`  Attempting to insert message: matchId=${matchId}, senderId=${selfId}, content=${content.trim()}`);
+            // --- 🔼 ログを追加 ---
 
             // 新しいメッセージを messages テーブルに挿入
             const insertRes = await client.query(
@@ -80,6 +99,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                  RETURNING id, created_at, sender_id, content`, // 挿入したメッセージ情報を返す
                 [matchId, selfId, content.trim()] // sender_id は selfId (uuid)
             );
+            // --- 🔽 ログを追加 (DB挿入後) ---
+            console.log(`  Message inserted successfully:`, insertRes.rows[0]);
+            // --- 🔼 ログを追加 ---
 
             // (任意) リアルタイム通知などを実装する場合はここで行う (例: Supabase Realtime)
 
