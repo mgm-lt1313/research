@@ -71,7 +71,8 @@ export default function ChatRoom() {
 
     // --- メッセージ履歴の取得 ---
     useEffect(() => {
-        if (!match_id) return; // match_id が取得できるまで待つ
+        // if (!match_id) return; // 👈 このチェックはfetchMessages内で行うので削除してもOK
+        if (!match_id || !selfSpotifyId) return; // 👈 selfSpotifyIdもここでチェック
 
         // pages/chat/[match_id].tsx の fetchMessages 関数内 (useEffect内)
 
@@ -79,11 +80,11 @@ export default function ChatRoom() {
         setLoading(true);
         setError(null);
         console.log("Fetching messages for match_id:", match_id, "selfSpotifyId:", selfSpotifyId); // ログを追加
-        if (!match_id || !selfSpotifyId) { // selfSpotifyId もチェック
-            setError("チャットIDまたはユーザー情報が不足しています。");
-            setLoading(false);
-            return;
-        }
+        // if (!match_id || !selfSpotifyId) { // selfSpotifyId もチェック
+        //     setError("チャットIDまたはユーザー情報が不足しています。");
+        //     setLoading(false);
+        //     return;
+        // }
         try {
             // --- 🔽 クエリパラメータに selfSpotifyId を追加 ---
             const res = await axios.get(`/api/chat/${match_id}?selfSpotifyId=${selfSpotifyId}`);
@@ -110,7 +111,10 @@ export default function ChatRoom() {
         // const intervalId = setInterval(fetchMessages, 5000); // 5秒ごと
         // return () => clearInterval(intervalId); // コンポーネント破棄時にクリア
 
-    }, [match_id]); // match_id が変わったら再取得
+    // --- 🔽 dependency array に selfSpotifyId を追加 ---
+    // }, [match_id]); // 元のコード
+    }, [match_id, selfSpotifyId]); // 👈 修正後
+    // --- 🔼 修正ここまで ---
 
     // --- 末尾への自動スクロール ---
     useEffect(() => {
@@ -150,10 +154,11 @@ export default function ChatRoom() {
 
             console.log("Message sent successfully:", postResponse.data);
 
-            // --- 🔽 メッセージリスト再取得時の GET リクエストを修正 ---
-            // 成功したらメッセージリストを再取得 (ポーリングがない場合)
-            // const getResponse = await axios.get(`/api/chat/${match_id}`); // 元のコード (selfSpotifyId がない！)
-            const getResponse = await axios.get(`/api/chat/${match_id}?selfSpotifyId=${selfSpotifyId}`); // 👈 修正後
+            // --- 🔽 getResponse を使って state を更新 ---
+            // 成功したらメッセージリストを再取得
+            const getResponse = await axios.get(`/api/chat/${match_id}?selfSpotifyId=${selfSpotifyId}`);
+            // getResponse を使って messages state を更新する
+            setMessages(getResponse.data.messages || []); // 👈 getResponse を使用
             // --- 🔼 修正ここまで ---
 
             // 成功したらメッセージリストを再取得 (ポーリングがない場合)
@@ -161,21 +166,14 @@ export default function ChatRoom() {
             setMessages(res.data.messages || []);
         } catch (err: unknown) {
             // --- 🔽 エラー時の詳細ログを追加 ---
-            console.error("Failed to send message:", err);
-            let detailedErrorMessage = 'メッセージの送信または再取得に失敗しました。'; // エラーメッセージを少し変更
+            console.error("Failed to send message OR fetch after sending:", err);
+            let detailedErrorMessage = 'メッセージの送信または再取得に失敗しました。';
             if (axios.isAxiosError(err)) {
-                console.error("Axios error details:", {
-                    status: err.response?.status,
-                    data: err.response?.data,
-                    configData: err.config?.data, // 送信したデータも確認
-                });
+                console.error("Axios error details:", { status: err.response?.status, data: err.response?.data, configData: err.config?.data });
                 detailedErrorMessage += ` (サーバーエラー: ${err.response?.data?.message || err.message})`;
             } else if (err instanceof Error) {
                 detailedErrorMessage += ` (${err.message})`;
             }
-            setError(detailedErrorMessage); // 詳細なエラーメッセージを表示
-            // --- 🔼 エラー時の詳細ログを追加 ---
-            console.error("Failed to send message OR fetch after sending:", err); // ログメッセージを少し変更
             setError(detailedErrorMessage);
             setNewMessage(contentToSend);
         } finally {
