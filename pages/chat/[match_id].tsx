@@ -154,12 +154,12 @@ export default function ChatRoom() {
 
             console.log("Message sent successfully:", postResponse.data);
 
-            // --- 🔽 getResponse を使って state を更新 ---
+            // --- 🔽★【要確認】★ この GET リクエストに selfSpotifyId が付いているか？ ---
             // 成功したらメッセージリストを再取得
             const getResponse = await axios.get(`/api/chat/${match_id}?selfSpotifyId=${selfSpotifyId}`);
-            // getResponse を使って messages state を更新する
-            setMessages(getResponse.data.messages || []); // 👈 getResponse を使用
-            // --- 🔼 修正ここまで ---
+            // --- 🔼★【要確認】★ ---
+
+            setMessages(getResponse.data.messages || []); // getResponse を使用
 
             // 成功したらメッセージリストを再取得 (ポーリングがない場合)
             const res = await axios.get(`/api/chat/${match_id}`);
