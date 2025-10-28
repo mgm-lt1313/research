@@ -73,20 +73,36 @@ export default function ChatRoom() {
     useEffect(() => {
         if (!match_id) return; // match_id が取得できるまで待つ
 
-        const fetchMessages = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                // チャットAPI (GET) を呼び出す (次のステップで作成)
-                const res = await axios.get(`/api/chat/${match_id}`);
-                setMessages(res.data.messages || []);
-            } catch (err: unknown) {
-                console.error("Failed to fetch messages:", err);
-                setError('メッセージの取得に失敗しました。');
-            } finally {
-                setLoading(false);
-            }
-        };
+        // pages/chat/[match_id].tsx の fetchMessages 関数内 (useEffect内)
+
+    const fetchMessages = async () => {
+        setLoading(true);
+        setError(null);
+        console.log("Fetching messages for match_id:", match_id, "selfSpotifyId:", selfSpotifyId); // ログを追加
+        if (!match_id || !selfSpotifyId) { // selfSpotifyId もチェック
+            setError("チャットIDまたはユーザー情報が不足しています。");
+            setLoading(false);
+            return;
+        }
+        try {
+            // --- 🔽 クエリパラメータに selfSpotifyId を追加 ---
+            const res = await axios.get(`/api/chat/${match_id}?selfSpotifyId=${selfSpotifyId}`);
+            // --- 🔼 修正ここまで ---
+            console.log("Messages API Response:", res.data); // レスポンスもログ確認
+            setMessages(res.data.messages || []);
+        } catch (err: unknown) {
+            console.error("Failed to fetch messages:", err);
+             let msg = 'メッセージの取得に失敗しました。';
+             if (axios.isAxiosError(err)) { // Axiosのエラーか確認
+                 msg += ` (Status: ${err.response?.status}, ${err.response?.data?.message || '詳細不明'})`;
+             } else if (err instanceof Error) {
+                 msg += ` ${err.message}`;
+             }
+            setError(msg); // エラーメッセージを詳細化
+        } finally {
+            setLoading(false);
+        }
+    };
 
         fetchMessages();
 
