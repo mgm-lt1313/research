@@ -1,9 +1,9 @@
 // pages/chat/[match_id].tsx (新規作成)
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef, FormEvent } from 'react';
 import axios from 'axios';
 import Image from 'next/image';
+import Link from 'next/link'; // Link の import
 
 // メッセージの型
 interface Message {
@@ -28,6 +28,8 @@ export default function ChatRoom() {
         match_id?: string;
         selfSpotifyId?: string; // 自分のSpotify ID
         otherUserId?: string;   // 相手の users.id (uuid)
+        otherNickname?: string; // 👈 追加
+        otherImageUrl?: string; // 👈 追加
     };
 
     const [messages, setMessages] = useState<Message[]>([]);
@@ -40,33 +42,22 @@ export default function ChatRoom() {
     // メッセージリストの末尾にスクロールするための参照
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // --- 相手のプロフィール情報を取得 ---
+    // --- 🔽 相手のプロフィール情報を取得する useEffect を修正 (API呼び出しを削除) ---
     useEffect(() => {
-        if (!otherUserId) return;
-        const fetchOtherUserInfo = async () => {
-             try {
-                // profile/get APIを流用 (相手のSpotify IDではなく、内部IDで検索するAPIがあればより良い)
-                // ここでは仮実装として、内部IDからSpotify IDを逆引きするAPIを想定
-                // もしくは、chats.tsxからプロフィール情報を渡す方法もある
-                 const profileRes = await axios.get(`/api/profile/get?internalUserId=${otherUserId}`); // 仮のAPIエンドポイント
-                 if (profileRes.data.profile) {
-                     setOtherUserInfo({
-                         id: otherUserId, // ここは internalId (uuid)
-                         nickname: profileRes.data.profile.nickname,
-                         profile_image_url: profileRes.data.profile.profile_image_url
-                     });
-                 } else {
-                     // 簡易的にIDを表示
-                     setOtherUserInfo({ id: otherUserId, nickname: `ユーザー(${otherUserId.substring(0, 6)}...)`, profile_image_url: null });
-                 }
-             } catch (err) {
-                 console.error("Failed to fetch other user info:", err);
-                 // 取得できなくてもチャットはできるように簡易表示
-                 setOtherUserInfo({ id: otherUserId, nickname: `ユーザー(${otherUserId.substring(0, 6)}...)`, profile_image_url: null });
-             }
-        };
-        fetchOtherUserInfo();
-    }, [otherUserId]);
+        if (otherUserId && otherNickname) {
+            // URLパラメータからデコードしてステートにセット
+            setOtherUserInfo({
+                id: otherUserId,
+                nickname: decodeURIComponent(otherNickname), // 👈 デコード
+                profile_image_url: otherImageUrl ? decodeURIComponent(otherImageUrl) : null // 👈 デコード
+            });
+        } else if (otherUserId) {
+            // 万が一パラメータが渡されなかった場合のフォールバック
+            setOtherUserInfo({ id: otherUserId, nickname: `ユーザー(${otherUserId.substring(0, 6)}...)`, profile_image_url: null });
+        }
+        // 既存の API 呼び出し (axios.get(`/api/profile/get?internalUserId=...`)) は削除する
+    }, [otherUserId, otherNickname, otherImageUrl]); // 👈 依存配列を更新
+    // --- 🔼 修正ここまで ---
 
 
     // --- メッセージ履歴の取得 ---

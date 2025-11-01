@@ -139,8 +139,10 @@ export default function Chats() {
           <ul className="space-y-3">
             {matches.map(match => (
               <li key={match.match_id}>
-                {/* ❗️ チャットルームページへのリンク (まだ作成していない) */}
-                <Link href={`/chat/${match.match_id}?selfSpotifyId=${spotifyUserId}&otherUserId=${match.other_user.id}&otherNickname=${encodeURIComponent(match.other_user.nickname)}&otherImageUrl=${encodeURIComponent(match.other_user.profile_image_url || '')}`}>
+                    {/* 🔽 href に otherNickname と otherImageUrl を追加 🔽 */}
+                    <Link
+                      href={`/chat/${match.match_id}?selfSpotifyId=${spotifyUserId}&otherUserId=${match.other_user.id}&otherNickname=${encodeURIComponent(match.other_user.nickname)}&otherImageUrl=${encodeURIComponent(match.other_user.profile_image_url || '')}`}
+                      className="block bg-gray-800 p-4 rounded-lg flex items-center space-x-4 hover:bg-gray-700 transition-colors duration-150 shadow">
 
                   {match.other_user.profile_image_url ? (
                     <Image src={match.other_user.profile_image_url} alt={match.other_user.nickname} width={48} height={48} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
