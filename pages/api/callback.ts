@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     method: 'post' as const, // 'post' を const アサーションすることで型推論を正確にする
     params: {
       code: code,
-      redirect_uri: process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || '',
+      redirect_uri: process.env.SPOTIFY_REDIRECT_URI || '',
       grant_type: 'authorization_code',
     },
     headers: {
