@@ -33,14 +33,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 🔽 accessToken と image を含む selectedArtists を受け取る
-    const { spotifyUserId, selectedArtists, accessToken } = req.body as {
-        spotifyUserId: string;
-        selectedArtists: SelectedArtistInput[];
-        accessToken: string; // Spotify API呼び出しに必要
+    const { spotifyUserId, selectedArtists, accessToken, refreshToken } = req.body as {
+    spotifyUserId: string;
+    selectedArtists: SelectedArtistInput[];
+    accessToken: string;
+    refreshToken?: string;
     };
+
 
     console.log("Access token received:", accessToken?.slice(0, 10) || "MISSING");
 
+
+    
     if (!spotifyUserId || !Array.isArray(selectedArtists) || !accessToken) {
         return res.status(400).json({ message: 'Missing required fields or invalid data format.' });
     }

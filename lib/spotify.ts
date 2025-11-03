@@ -160,3 +160,23 @@ export const verifyArtistExists = async (
     return false;
   }
 };
+
+export const validateAccessToken = async (
+  accessToken: string
+): Promise<boolean> => {
+  try {
+    // 軽量なエンドポイント(/me)を呼び出し、トークン有効性を確認
+    await axios.get(`${SPOTIFY_BASE_URL}/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    return true;
+  } catch (error) {
+    // アクセストークンが無効または期限切れの場合は401を受け取る
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      console.error('[Spotify API] Access token is expired or invalid.');
+      return false;
+    }
+    console.error('[Spotify API] Token validation error:', error);
+    return false;
+  }
+};
