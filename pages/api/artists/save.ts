@@ -39,6 +39,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         accessToken: string; // Spotify API呼び出しに必要
     };
 
+    console.log("Access token received:", accessToken?.slice(0, 10) || "MISSING");
+
     if (!spotifyUserId || !Array.isArray(selectedArtists) || !accessToken) {
         return res.status(400).json({ message: 'Missing required fields or invalid data format.' });
     }
