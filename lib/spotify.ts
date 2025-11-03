@@ -96,6 +96,13 @@ export const getArtistRelatedArtists = async (
   accessToken: string,
   artistId: string
 ): Promise<SpotifyArtist[]> => {
+
+  // ▼▼▼【追加】リクエストURLを構築 ▼▼▼
+  const requestUrl = `${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`;
+
+  // ▼▼▼【追加】リクエスト直前にURLをVercelのログに出力 ▼▼▼
+  console.log(`[Spotify API] Requesting URL: ${requestUrl}`);
+
   try {
     const { data } = await axios.get<RelatedArtistsResponse>(
       `https://api.spotify.com/v1/artists/${artistId}/related-artists`,
@@ -112,6 +119,9 @@ export const getArtistRelatedArtists = async (
     // 関連アーティストは最大10人まで取得（多すぎると計算が重くなるため）
     return data.artists.slice(0, 10);
   } catch (error) {
+    // ▼▼▼【変更】エラー時にもリクエストURLを出力 ▼▼▼
+    console.error(`[Spotify API] Failed to fetch URL: ${requestUrl}`, error);
+    
     console.error(`Failed to get related artists for ${artistId}:`, error);
     // // 404以外のエラー（401認証エラーなど）もここでキャッチされます
     // // ▼▼▼ エラーログ強化 ▼▼▼
