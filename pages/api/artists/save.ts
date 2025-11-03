@@ -6,8 +6,6 @@ import { getArtistRelatedArtists } from '../../../lib/spotify'; // 関連アー�
 import Graph from 'graphology'; // グラフ作成
 import { pagerank } from 'graphology-metrics/centrality'; // PageRank計算
 
-console.log("Access token received:", accessToken?.slice(0, 10) || "MISSING");
-
 // 選択されたアーティストの型 (フロントから渡される)
 interface SelectedArtistInput {
   id: string;
@@ -184,3 +182,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         client.release();
     }
 }
+
