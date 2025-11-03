@@ -30,5 +30,5 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }).toString();
 
   // Spotifyの認証ページにリダイレクト
-  res.redirect(`https://accounts.spotify.com/authorize`);
+  res.redirect(`https://accounts.spotify.com/authorize?${queryParams}`);
 }
