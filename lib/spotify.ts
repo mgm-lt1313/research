@@ -130,3 +130,25 @@ export const getArtistRelatedArtists = async (
     return []; // エラー時は空配列を返す
   }
 };
+
+export const verifyArtistExists = async (
+  accessToken: string,
+  artistId: string
+): Promise<boolean> => {
+  try {
+    const { data } = await axios.get(
+      `${SPOTIFY_BASE_URL}/artists/${artistId}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
+      }
+    );
+    console.log(`[Verify] Artist ${artistId} exists: ${data.name}`);
+    return true;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error(`[Verify] Artist ${artistId} does NOT exist. Status: ${error.response?.status}`);
+    }
+    return false;
+  }
+};

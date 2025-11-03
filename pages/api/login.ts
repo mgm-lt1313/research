@@ -5,7 +5,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 // user-read-private: ユーザーのプライベートな情報（メールアドレスなど）
 // user-read-email: ユーザーのメールアドレス
 // user-follow-read: ユーザーがフォローしているアーティストやユーザーを読み取る
-const scope = 'user-read-private user-read-email user-follow-read';
+const scope = 'user-read-private user-read-email user-follow-read user-top-read';
 
 // CSRF対策のためのランダムな文字列を生成
 function generateRandomString(length: number) {
