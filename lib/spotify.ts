@@ -100,6 +100,10 @@ export const getArtistRelatedArtists = async (
   // ▼▼▼【追加】リクエストURLを構築 ▼▼▼
   const requestUrl = `${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`;
 
+  // 🔽 トークンのログ出力（先頭10文字だけ）
+  console.log(`[Debug] Fetching related artists for ${artistId}`);
+  console.log(`[Debug] Access Token: ${accessToken?.slice(0, 10) || 'MISSING'}`);
+
   // ▼▼▼【追加】リクエスト直前にURLをVercelのログに出力 ▼▼▼
   console.log(`[Spotify API] Requesting URL: ${requestUrl}`);
 
@@ -118,16 +122,17 @@ export const getArtistRelatedArtists = async (
 
     // 関連アーティストは最大10人まで取得（多すぎると計算が重くなるため）
     return data.artists.slice(0, 10);
-  } catch (error) {
-    // ▼▼▼【変更】エラー時にもリクエストURLを出力 ▼▼▼
-    console.error(`[Spotify API] Failed to fetch URL: ${requestUrl}`, error);
-    
-    console.error(`Failed to get related artists for ${artistId}:`, error);
-    // // 404以外のエラー（401認証エラーなど）もここでキャッチされます
-    // // ▼▼▼ エラーログ強化 ▼▼▼
-    // console.error(`Failed to get related artists for ${artistId}:`, error.response?.status, error.message);
-    // // ▲▲▲ エラーログ強化 ▲▲▲
-    return []; // エラー時は空配列を返す
+  } catch (error: any) {
+    const status = error.response?.status;
+  if (status === 401) {
+    console.error(`[Spotify API] 401 Unauthorized: Access token may have expired for ${artistId}`);
+  } else if (status === 404) {
+    console.warn(`[Spotify API] 404 Not Found: Artist ${artistId} not found or no related artists`);
+  } else {
+    console.error(`[Spotify API] Unexpected error (${status}) for ${artistId}`, error.message);
+  }
+
+  return [];
   }
 };
 
