@@ -105,7 +105,7 @@ export const getArtistRelatedArtists = async (
 
   try {
     const { data } = await axios.get<RelatedArtistsResponse>(
-      `https://api.spotify.com/v1/artists/${artistId}/related-artists`,
+      requestUrl,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
