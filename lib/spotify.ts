@@ -1,5 +1,6 @@
 // lib/spotify.ts
 import axios from 'axios';
+import { AxiosError } from 'axios';
 
 // Spotify APIのベースURL
 const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1';
@@ -122,14 +123,16 @@ export const getArtistRelatedArtists = async (
 
     // 関連アーティストは最大10人まで取得（多すぎると計算が重くなるため）
     return data.artists.slice(0, 10);
-  } catch (error: any) {
-    const status = error.response?.status;
+  } catch (error: unknown) {
+  const axiosError = error as AxiosError;
+  const status = axiosError.response?.status;
+
   if (status === 401) {
     console.error(`[Spotify API] 401 Unauthorized: Access token may have expired for ${artistId}`);
   } else if (status === 404) {
     console.warn(`[Spotify API] 404 Not Found: Artist ${artistId} not found or no related artists`);
   } else {
-    console.error(`[Spotify API] Unexpected error (${status}) for ${artistId}`, error.message);
+    console.error(`[Spotify API] Unexpected error (${status}) for ${artistId}`, axiosError.message);
   }
 
   return [];
