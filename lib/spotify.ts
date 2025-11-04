@@ -147,7 +147,7 @@ export const getArtistRelatedArtists = async (
       console.log(`[Spotify API] Method 1 success: Found ${data.artists.length} related artists`);
       return data.artists.slice(0, 10);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn(`[Spotify API] Method 1 (related-artists) failed for ${artistId}`);
   }
 
@@ -175,7 +175,7 @@ export const getArtistRelatedArtists = async (
         return genreArtists;
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn(`[Spotify API] Method 2 (genre search) failed for ${artistId}`);
   }
 
@@ -188,7 +188,7 @@ export const getArtistRelatedArtists = async (
       console.log(`[Spotify API] Method 3 success: Using ${similar.length} top artists`);
       return similar;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn(`[Spotify API] Method 3 (top artists) failed for ${artistId}`);
   }
 
