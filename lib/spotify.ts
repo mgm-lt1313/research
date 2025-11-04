@@ -1,21 +1,17 @@
-// lib/spotify.ts
-import axios from 'axios';
-import { AxiosError } from 'axios';
+// lib/spotify.ts - 完全版
 
-// Spotify APIのベースURL
+import axios from 'axios';
+
 const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1';
 
-// Spotify APIのプロフィール情報の型定義
 export interface SpotifyProfile {
   display_name: string;
   id: string;
   images: { url: string; height: number; width: number }[];
   external_urls: { spotify: string };
   href: string;
-  // 必要に応じて他のプロパティも追加
 }
 
-// Spotify APIのアーティスト情報の型定義
 export interface SpotifyArtist {
   id: string;
   name: string;
@@ -23,13 +19,8 @@ export interface SpotifyArtist {
   external_urls: { spotify: string };
   genres: string[];
   popularity: number;
-  // 必要に応じて他のプロパティも追加
 }
 
-/**
- * 現在のユーザーのプロフィール情報を取得
- * @param accessToken Spotify APIのアクセストークン
- */
 export const getMyProfile = async (accessToken: string): Promise<SpotifyProfile> => {
   const { data } = await axios.get<SpotifyProfile>(`${SPOTIFY_BASE_URL}/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -37,10 +28,6 @@ export const getMyProfile = async (accessToken: string): Promise<SpotifyProfile>
   return data;
 };
 
-/**
- * 現在のユーザーがフォローしているアーティストのリストを取得
- * @param accessToken Spotify APIのアクセストークン
- */
 interface SpotifyFollowingArtistsResponse {
   artists: {
     items: SpotifyArtist[];
@@ -57,15 +44,7 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
   let hasNext = true;
 
   while (hasNext) {
-    const params = new URLSearchParams({
-      type: 'artist',
-      limit: '50',
-    });
-    if (after) {
-      params.append('after', after);
-    }
-    // 正しいエンドポイント /me/following を使う
-    const url = `${SPOTIFY_BASE_URL}/me/following?${params.toString()}`;
+    const url = `${SPOTIFY_BASE_URL}/me/following?type=artist&limit=50${after ? `&after=${after}` : ''}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -85,98 +64,188 @@ export async function getMyFollowingArtists(accessToken: string): Promise<Spotif
 }
 
 /**
- * 指定したアーティストの関連アーティストを取得
- * @param accessToken Spotify APIのアクセストークン
- * @param artistId アーティストID
+ * アーティスト情報を取得
  */
-interface RelatedArtistsResponse {
-  artists: SpotifyArtist[];
-}
-
-export const getArtistRelatedArtists = async (
+export const getArtistInfo = async (
   accessToken: string,
   artistId: string
-): Promise<SpotifyArtist[]> => {
-
-  // ▼▼▼【追加】リクエストURLを構築 ▼▼▼
-  const requestUrl = `${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`;
-
-  // 🔽 トークンのログ出力（先頭10文字だけ）
-  console.log(`[Debug] Fetching related artists for ${artistId}`);
-  console.log(`[Debug] Access Token: ${accessToken?.slice(0, 10) || 'MISSING'}`);
-
-  // ▼▼▼【追加】リクエスト直前にURLをVercelのログに出力 ▼▼▼
-  console.log(`[Spotify API] Requesting URL: ${requestUrl}`);
-
+): Promise<SpotifyArtist | null> => {
   try {
-    const { data } = await axios.get<RelatedArtistsResponse>(
-      requestUrl,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
-
-// ▼▼▼ デバッグログ追加 ▼▼▼
-    // Vercelのログで、Spotify APIが何件の関連アーティストを返したか確認します。
-    console.log(`[Spotify API] Related artists for ${artistId}: ${data.artists.length} found.`);
-    // ▲▲▲ デバッグログ追加 ▲▲▲
-
-    // 関連アーティストは最大10人まで取得（多すぎると計算が重くなるため）
-    return data.artists.slice(0, 10);
-  } catch (error: unknown) {
-  const axiosError = error as AxiosError;
-  const status = axiosError.response?.status;
-
-  if (status === 401) {
-    console.error(`[Spotify API] 401 Unauthorized: Access token may have expired for ${artistId}`);
-  } else if (status === 404) {
-    console.warn(`[Spotify API] 404 Not Found: Artist ${artistId} not found or no related artists`);
-  } else {
-    console.error(`[Spotify API] Unexpected error (${status}) for ${artistId}`, axiosError.message);
-  }
-
-  return [];
-  }
-};
-
-export const verifyArtistExists = async (
-  accessToken: string,
-  artistId: string
-): Promise<boolean> => {
-  try {
-    const { data } = await axios.get(
+    console.log(`[Spotify API] Getting artist info for: ${artistId}`);
+    const { data } = await axios.get<SpotifyArtist>(
       `${SPOTIFY_BASE_URL}/artists/${artistId}`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
         timeout: 10000,
       }
     );
-    console.log(`[Verify] Artist ${artistId} exists: ${data.name}`);
-    return true;
+    console.log(`[Spotify API] Artist found: ${data.name}, Genres: ${data.genres.join(', ')}`);
+    return data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error(`[Verify] Artist ${artistId} does NOT exist. Status: ${error.response?.status}`);
+      console.error(`[Spotify API] Artist not found: ${artistId}, Status: ${error.response?.status}`);
     }
-    return false;
+    return null;
   }
 };
 
-export const validateAccessToken = async (
-  accessToken: string
-): Promise<boolean> => {
+/**
+ * 複数のアーティスト情報を一括取得（効率化）
+ */
+export const getMultipleArtists = async (
+  accessToken: string,
+  artistIds: string[]
+): Promise<SpotifyArtist[]> => {
   try {
-    // 軽量なエンドポイント(/me)を呼び出し、トークン有効性を確認
-    await axios.get(`${SPOTIFY_BASE_URL}/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    return true;
-  } catch (error) {
-    // アクセストークンが無効または期限切れの場合は401を受け取る
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      console.error('[Spotify API] Access token is expired or invalid.');
-      return false;
+    // Spotify APIは最大50アーティストまで一括取得可能
+    const chunks = [];
+    for (let i = 0; i < artistIds.length; i += 50) {
+      chunks.push(artistIds.slice(i, i + 50));
     }
-    console.error('[Spotify API] Token validation error:', error);
-    return false;
+
+    const allArtists: SpotifyArtist[] = [];
+    for (const chunk of chunks) {
+      const { data } = await axios.get(
+        `${SPOTIFY_BASE_URL}/artists`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { ids: chunk.join(',') },
+          timeout: 10000,
+        }
+      );
+      allArtists.push(...data.artists.filter((a: SpotifyArtist | null) => a !== null));
+    }
+    
+    return allArtists;
+  } catch (error) {
+    console.error('[Spotify API] Failed to get multiple artists:', error);
+    return [];
   }
 };
+
+/**
+ * 関連アーティストを取得（複数の方法を試行）
+ */
+export const getArtistRelatedArtists = async (
+  accessToken: string,
+  artistId: string
+): Promise<SpotifyArtist[]> => {
+  console.log(`[Spotify API] Getting related artists for: ${artistId}`);
+  
+  // 方法1: related-artists エンドポイント
+  try {
+    const { data } = await axios.get(
+      `${SPOTIFY_BASE_URL}/artists/${artistId}/related-artists`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
+        validateStatus: (status) => status < 500, // 4xxエラーもキャッチ
+      }
+    );
+    
+    if (data.artists && data.artists.length > 0) {
+      console.log(`[Spotify API] Method 1 success: Found ${data.artists.length} related artists`);
+      return data.artists.slice(0, 10);
+    }
+  } catch (error) {
+    console.warn(`[Spotify API] Method 1 (related-artists) failed for ${artistId}`);
+  }
+
+  // 方法2: アーティスト情報からジャンルベースで検索
+  try {
+    const artistInfo = await getArtistInfo(accessToken, artistId);
+    
+    if (!artistInfo) {
+      console.error(`[Spotify API] Artist ${artistId} does not exist`);
+      return [];
+    }
+
+    if (artistInfo.genres.length === 0) {
+      console.warn(`[Spotify API] Artist ${artistId} has no genres`);
+      // 方法3へ
+    } else {
+      const genreArtists = await searchArtistsByGenre(
+        accessToken,
+        artistInfo.genres[0],
+        artistId
+      );
+      
+      if (genreArtists.length > 0) {
+        console.log(`[Spotify API] Method 2 success: Found ${genreArtists.length} artists by genre`);
+        return genreArtists;
+      }
+    }
+  } catch (error) {
+    console.warn(`[Spotify API] Method 2 (genre search) failed for ${artistId}`);
+  }
+
+  // 方法3: ユーザーのトップアーティストから類似アーティストを取得
+  try {
+    const topArtists = await getUserTopArtists(accessToken);
+    const similar = topArtists.filter(a => a.id !== artistId).slice(0, 10);
+    
+    if (similar.length > 0) {
+      console.log(`[Spotify API] Method 3 success: Using ${similar.length} top artists`);
+      return similar;
+    }
+  } catch (error) {
+    console.warn(`[Spotify API] Method 3 (top artists) failed for ${artistId}`);
+  }
+
+  console.error(`[Spotify API] All methods failed for ${artistId}`);
+  return [];
+};
+
+/**
+ * ジャンルでアーティストを検索
+ */
+async function searchArtistsByGenre(
+  accessToken: string,
+  genre: string,
+  excludeArtistId: string
+): Promise<SpotifyArtist[]> {
+  try {
+    const { data } = await axios.get(
+      `${SPOTIFY_BASE_URL}/search`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          q: `genre:"${genre}"`,
+          type: 'artist',
+          limit: 15,
+        },
+        timeout: 10000,
+      }
+    );
+    
+    const artists = data.artists?.items || [];
+    return artists.filter((a: SpotifyArtist) => a.id !== excludeArtistId).slice(0, 10);
+  } catch (error) {
+    console.error(`[Spotify API] Genre search failed for "${genre}":`, error);
+    return [];
+  }
+}
+
+/**
+ * ユーザーのトップアーティストを取得
+ */
+async function getUserTopArtists(accessToken: string): Promise<SpotifyArtist[]> {
+  try {
+    const { data } = await axios.get(
+      `${SPOTIFY_BASE_URL}/me/top/artists`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          limit: 20,
+          time_range: 'medium_term',
+        },
+        timeout: 10000,
+      }
+    );
+    
+    return data.items || [];
+  } catch (error) {
+    console.error('[Spotify API] Failed to get top artists:', error);
+    return [];
+  }
+}
