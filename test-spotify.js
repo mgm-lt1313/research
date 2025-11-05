@@ -4,7 +4,7 @@ const axios = require('axios');
 
 // --- 1. ここにSpotifyから取得した有効なアクセストークンを貼り付けます ---
 // (ログにあった 'BQDdsFoe70...' のような文字列。期限切れの場合は再取得してください)
-const MY_ACCESS_TOKEN = 'BQD0z_t5cfpOalzfH89NKvzVOUMbDIB8zGDXkRt0wPOTeoaxljYn8LCYtqGZZQYjjg-6GkTHkf3WIZNAOMI7tZxfX0wzbn4HsBd55C3Hz3Od--XcSW8fBvPHhWh0gyJlfXtXVSoz9Ofmax0XAcqFJF2SJe5q2l5KFUvIeQYhtVbVMJsgffDB7ZMo6FJk6T9fdbxmenDt-8SNA_tpn9ZQWGVPH2-FQzHpOQSfcbMF1KLqTJYunQIr55ny66BgXoLHmRc8voyhN7hL';
+const MY_ACCESS_TOKEN = 'BQDLtXydNxZCeay-wwMIfFw1UYiGmTxKVVVnuqeXFchnGwwudH-sAhe02h3Umh16aunkYH5bRJMfbtCQ8S_o6SDiK_K8Busoi_cpm9f1ZrLA_sZ56tbuj5SStLz4Q5CqvWCvnpb4T19n8t9SMi1vXKK0X2yXGP6FjNMzKDqefVc7NjTnHzbgw_MtdDxvHL9bVx6qNyXhyIZWl7hjfQd6ax5e4n14VrTotX6QLSjuG8Yta5hd_z1itmB9tUvoP68a4bHvUmw4mUjn';
 
 // --- 2. アーティストID (ログから) ---
 const ARTIST_ID = '6M2wZ9GZgrQXHCFfjv46we'; // (ログにあったアーティストID)
